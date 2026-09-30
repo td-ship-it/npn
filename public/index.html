@@ -1,0 +1,1964 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HRM · Quản Lý Nghỉ Phép</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>" />
+  <script src="config.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── DARK MODE (mặc định) ── */
+    :root {
+      --navy:#0F2044; --navy-light:#1B3A6B; --navy-mid:#244D8A;
+      --accent:#E8A020; --accent-dim:#C8880A; --gold:#F4B942;
+      --red:#D0392B; --blue:#2C74C9; --sky:#5B9BD5; --slate:#8BA8CC; --muted:#4A6FA5;
+      --white:#EEF3FA; --purple:#8E44AD; --lilac:#C39BD3; --orange:#E67E22; --teal:#16A085;
+      --card-bg:rgba(255,255,255,0.05); --card-border:rgba(255,255,255,0.10);
+      --row-border:rgba(255,255,255,0.04); --hover-bg:rgba(255,255,255,0.03);
+      --topbar-bg:rgba(11,29,58,0.8); --input-bg:rgba(255,255,255,0.05); --input-focus:rgba(232,160,32,0.05);
+      --sidebar-w:270px; --radius:12px; --radius-sm:8px; --transition:0.22s cubic-bezier(.4,0,.2,1);
+    }
+    /* ── LIGHT MODE ── */
+    html.light {
+      --navy:#F0F4FC; --navy-light:#FFFFFF; --navy-mid:#E2E8F5;
+      --accent:#C8780A; --accent-dim:#A86208; --gold:#B8860B;
+      --red:#C0392B; --blue:#1A5FB4; --sky:#2563A8; --slate:#4A5568; --muted:#718096;
+      --white:#1A202C; --purple:#6B21A8; --lilac:#6B21A8; --orange:#9A3412; --teal:#0D6E5A;
+      --card-bg:rgba(0,0,0,0.04); --card-border:rgba(0,0,0,0.10);
+      --row-border:rgba(0,0,0,0.06); --hover-bg:rgba(0,0,0,0.02);
+      --topbar-bg:rgba(240,244,252,0.9); --input-bg:rgba(0,0,0,0.04); --input-focus:rgba(200,120,10,0.06);
+    }
+    html.light .stat-card, html.light .table-wrap { box-shadow:0 1px 4px rgba(0,0,0,0.08); }
+    html.light .modal { box-shadow:0 8px 40px rgba(0,0,0,0.18); }
+    html.light .quota-bar, html.light .leave-info-bar { background:rgba(0,0,0,0.08); }
+
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    html { font-size:15px; scroll-behavior:smooth; }
+    body { font-family:'Be Vietnam Pro',sans-serif; background:var(--navy); color:var(--white); min-height:100vh; overflow-x:hidden; transition:background .3s ease,color .3s ease; }
+    #app { display:flex; min-height:100vh; }
+
+    .theme-toggle { width:36px; height:36px; border-radius:var(--radius-sm); background:var(--card-bg); border:1px solid var(--card-border); color:var(--slate); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:1.1rem; transition:all var(--transition); flex-shrink:0; }
+    .theme-toggle:hover { border-color:var(--accent); color:var(--accent); }
+
+    /* SIDEBAR */
+    .sidebar { width:var(--sidebar-w); background:var(--navy-light); border-right:1px solid var(--card-border); display:flex; flex-direction:column; position:fixed; top:0; left:0; height:100vh; z-index:100; transition:transform var(--transition); overflow:hidden; }
+    .sidebar-logo { padding:24px 20px 18px; border-bottom:1px solid var(--card-border); }
+    .logo-mark { display:flex; align-items:center; gap:12px; }
+    .logo-icon { width:40px; height:40px; background:#fff; padding:3px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+    .logo-text strong { display:block; font-size:1rem; font-weight:800; }
+    .logo-text span { font-size:0.7rem; color:var(--slate); }
+    .sidebar-user { padding:14px 18px; margin:10px; background:var(--card-bg); border:1px solid var(--card-border); border-radius:var(--radius); }
+    .user-avatar { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0; background:linear-gradient(135deg,var(--navy-mid),var(--muted)); color:#fff; }
+    .user-info { min-width:0; }
+    .user-info .name { font-size:0.82rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .role-badge { display:inline-flex; align-items:center; font-size:0.65rem; font-weight:700; padding:2px 8px; border-radius:20px; margin-top:3px; text-transform:uppercase; letter-spacing:0.5px; }
+    .badge-employee         { background:rgba(52,152,219,0.2);  color:var(--sky); }
+    .badge-lecturer         { background:rgba(142,68,173,0.2);  color:var(--lilac); }
+    .badge-manager          { background:rgba(243,156,18,0.2);  color:var(--gold); }
+    .badge-manager_lecturer { background:rgba(22,160,133,0.2);  color:var(--teal); }
+    .badge-hr               { background:rgba(46,204,113,0.2);  color:var(--accent); }
+    .sidebar-nav { flex:1; padding:6px 10px; overflow-y:auto; }
+    .nav-section-label { font-size:0.65rem; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); padding:10px 12px 5px; }
+    .nav-item { display:flex; align-items:center; gap:12px; padding:9px 13px; border-radius:var(--radius-sm); cursor:pointer; transition:all var(--transition); color:var(--slate); font-size:0.875rem; font-weight:500; position:relative; margin-bottom:2px; }
+    .nav-item:hover { background:var(--card-bg); color:var(--white); }
+    .nav-item.active { background:linear-gradient(90deg,rgba(232,160,32,0.18),rgba(232,160,32,0.05)); color:var(--accent); }
+    .nav-item.active::before { content:''; position:absolute; left:0; top:6px; bottom:6px; width:3px; background:var(--accent); border-radius:0 3px 3px 0; }
+    .nav-icon { font-size:1.1rem; width:22px; text-align:center; flex-shrink:0; }
+    .nav-badge { margin-left:auto; background:var(--red); color:#fff; font-size:0.65rem; font-weight:700; min-width:18px; height:18px; border-radius:9px; display:flex; align-items:center; justify-content:center; padding:0 5px; }
+    .sidebar-footer { padding:14px 10px; border-top:1px solid var(--card-border); }
+    .leave-quota { background:var(--card-bg); border:1px solid var(--card-border); border-radius:var(--radius-sm); padding:10px 13px; margin-bottom:8px; }
+    .quota-label { font-size:0.7rem; color:var(--slate); margin-bottom:5px; line-height:1.5; }
+    .quota-bar { height:6px; background:rgba(255,255,255,0.08); border-radius:3px; overflow:hidden; margin-bottom:4px; }
+    .quota-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--gold)); border-radius:3px; transition:width .8s ease; }
+    .quota-numbers { display:flex; justify-content:space-between; font-size:0.7rem; }
+    .quota-used { color:var(--slate); }
+    .quota-remain { color:var(--accent); font-weight:600; }
+    .btn-logout { width:100%; display:flex; align-items:center; justify-content:center; gap:8px; padding:8px; border-radius:var(--radius-sm); background:transparent; border:1px solid var(--card-border); color:var(--slate); font-size:0.82rem; font-weight:500; cursor:pointer; transition:all var(--transition); font-family:inherit; }
+    .btn-logout:hover { background:rgba(231,76,60,0.12); border-color:rgba(231,76,60,0.4); color:var(--red); }
+
+    .holiday-box { margin:0 10px 8px; padding:10px 13px; border-radius:var(--radius-sm); border:1px solid rgba(142,68,173,0.4); background:rgba(142,68,173,0.12); }
+    .holiday-box-title { font-size:0.68rem; font-weight:700; color:var(--lilac); letter-spacing:0.5px; text-transform:uppercase; margin-bottom:6px; }
+    .holiday-item { font-size:0.72rem; color:var(--slate); padding:3px 0; display:flex; justify-content:space-between; gap:8px; }
+    .holiday-item span { color:var(--white); font-weight:600; }
+
+    /* MAIN */
+    .main { margin-left:var(--sidebar-w); flex:1; min-width:0; min-height:100vh; display:flex; flex-direction:column; }
+    .topbar { height:60px; background:var(--topbar-bg); backdrop-filter:blur(12px); border-bottom:1px solid var(--card-border); display:flex; align-items:center; padding:0 26px; gap:14px; position:sticky; top:0; z-index:50; }
+    .topbar-titles { flex:1; min-width:0; }
+    .topbar-title { font-size:1rem; font-weight:700; }
+    .topbar-subtitle { font-size:0.75rem; color:var(--slate); }
+    .topbar-actions { display:flex; align-items:center; gap:8px; }
+
+    /* BUTTONS */
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:8px 18px; border-radius:var(--radius-sm); font-size:0.82rem; font-weight:600; cursor:pointer; transition:all var(--transition); border:none; font-family:inherit; white-space:nowrap; }
+    .btn:disabled { opacity:0.45; cursor:not-allowed; }
+    .btn-primary { background:var(--accent); color:#0F2044; font-weight:700; }
+    .btn-primary:hover:not(:disabled) { background:var(--accent-dim); transform:translateY(-1px); box-shadow:0 4px 14px rgba(232,160,32,0.4); }
+    .btn-secondary { background:var(--card-bg); border:1px solid var(--card-border); color:var(--white); }
+    .btn-secondary:hover:not(:disabled) { border-color:var(--slate); }
+    .btn-danger { background:rgba(231,76,60,0.15); border:1px solid rgba(231,76,60,0.35); color:var(--red); }
+    .btn-danger:hover:not(:disabled) { background:rgba(231,76,60,0.25); }
+    .btn-purple { background:rgba(142,68,173,0.2); border:1px solid rgba(142,68,173,0.4); color:var(--lilac); }
+    .btn-purple:hover:not(:disabled) { background:rgba(142,68,173,0.35); }
+    .btn-sm { padding:5px 12px; font-size:0.76rem; }
+
+    /* PAGE */
+    .page { flex:1; padding:26px; display:none; animation:fadeIn .3s ease; }
+    .page.active { display:block; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+    /* LOGIN */
+    #page-login { display:flex; align-items:center; justify-content:center; min-height:100vh; background:var(--navy); position:fixed; inset:0; z-index:200; padding:20px; }
+    #page-login.hidden { display:none; }
+    .login-bg { position:absolute; inset:0; overflow:hidden; }
+    .login-bg::before { content:''; position:absolute; top:-200px; right:-200px; width:600px; height:600px; border-radius:50%; background:radial-gradient(circle,rgba(232,160,32,0.06) 0%,transparent 70%); }
+    .login-card { background:var(--navy-light); border:1px solid var(--card-border); border-radius:20px; padding:0 42px 42px; width:100%; max-width:420px; position:relative; z-index:1; overflow:hidden; }
+    .login-card::before { content:''; display:block; height:5px; width:calc(100% + 84px); margin:0 -42px 34px; background:linear-gradient(90deg,var(--accent) 0%,var(--gold) 50%,var(--accent) 100%); }
+    .login-logo { text-align:center; margin-bottom:26px; }
+    .login-logo-icon { width:80px; height:80px; background:#fff; border-radius:16px; display:inline-flex; align-items:center; justify-content:center; font-size:28px; margin-bottom:14px; box-shadow:0 4px 24px rgba(0,0,0,0.2); padding:8px; }
+    .login-logo h1 { font-size:1.3rem; font-weight:800; line-height:1.2; }
+    .login-logo p { font-size:0.78rem; color:var(--accent); margin-top:5px; font-weight:600; }
+    .login-error { display:none; margin-top:13px; background:rgba(208,57,43,0.12); border:1px solid rgba(208,57,43,0.35); border-radius:8px; padding:10px 13px; font-size:0.8rem; color:#e05c50; }
+    @media (max-width:480px){ .login-card { padding:0 22px 28px; } .login-card::before { width:calc(100% + 44px); margin:0 -22px 26px; } }
+
+    /* FORM */
+    .form-group { margin-bottom:16px; }
+    .form-label { display:block; font-size:0.78rem; font-weight:600; color:var(--slate); margin-bottom:7px; letter-spacing:0.3px; }
+    .form-input { width:100%; padding:11px 15px; background:var(--input-bg); border:1px solid var(--card-border); border-radius:var(--radius-sm); color:var(--white); font-size:0.9rem; font-family:inherit; transition:all var(--transition); outline:none; }
+    .form-input:focus { border-color:var(--accent); background:var(--input-focus); box-shadow:0 0 0 3px rgba(232,160,32,0.1); }
+    .form-input::placeholder { color:var(--muted); }
+    .form-input[readonly] { cursor:default; }
+    .form-input.mono { font-family:'JetBrains Mono',monospace; letter-spacing:2px; }
+    select.form-input option { color:#1A202C; }
+    .form-hint { font-size:0.72rem; color:var(--muted); margin-top:5px; }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:13px; }
+    .form-error { display:none; color:var(--red); font-size:0.8rem; padding:8px 12px; background:rgba(231,76,60,0.1); border-radius:6px; margin-top:8px; }
+    .choice { display:flex; align-items:center; gap:8px; cursor:pointer; padding:9px 14px; border-radius:var(--radius-sm); border:1px solid var(--card-border); background:var(--input-bg); flex:1; min-width:110px; transition:all var(--transition); font-size:0.82rem; font-weight:600; }
+    .choice:has(input:checked) { border-color:var(--accent); background:rgba(232,160,32,0.08); }
+    .choice input { accent-color:var(--accent); }
+    .choice.block { align-items:flex-start; gap:12px; padding:12px 14px; }
+    .choice-sub { font-size:0.75rem; color:var(--slate); font-weight:400; }
+
+    /* STAT CARDS */
+    .stat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:14px; margin-bottom:24px; }
+    .stat-card { background:var(--card-bg); border:1px solid var(--card-border); border-radius:var(--radius); padding:18px; position:relative; overflow:hidden; transition:transform var(--transition); }
+    .stat-card:hover { transform:translateY(-2px); }
+    .stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+    .stat-card.green::before  { background:var(--accent); }
+    .stat-card.blue::before   { background:var(--blue); }
+    .stat-card.gold::before   { background:var(--gold); }
+    .stat-card.red::before    { background:var(--red); }
+    .stat-card.purple::before { background:var(--purple); }
+    .stat-icon { font-size:1.4rem; margin-bottom:10px; }
+    .stat-value { font-size:1.9rem; font-weight:800; line-height:1; margin-bottom:4px; }
+    .stat-label { font-size:0.76rem; color:var(--slate); }
+    .mini-bar { margin-top:6px; height:4px; background:rgba(128,128,128,0.2); border-radius:2px; overflow:hidden; }
+    .mini-bar > div { height:100%; border-radius:2px; transition:width .8s ease; }
+
+    .section-header { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+    .section-title { font-size:1.05rem; font-weight:700; }
+    .section-sub { font-size:0.78rem; color:var(--slate); margin-top:2px; }
+    .info-panel { background:rgba(142,68,173,0.1); border:1px solid rgba(142,68,173,0.3); border-radius:var(--radius); padding:16px 18px; margin-bottom:20px; }
+    .info-panel-title { font-size:0.85rem; font-weight:700; color:var(--lilac); margin-bottom:6px; }
+    .info-panel-body { font-size:0.82rem; color:var(--slate); line-height:1.7; }
+
+    .filter-bar { display:flex; flex-wrap:wrap; gap:9px; margin-bottom:14px; padding:14px; background:var(--card-bg); border:1px solid var(--card-border); border-radius:var(--radius); }
+    .filter-bar .form-input { flex:1; min-width:130px; padding:8px 12px; font-size:0.82rem; }
+
+    /* TABLE */
+    .table-wrap { background:var(--card-bg); border:1px solid var(--card-border); border-radius:var(--radius); overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; }
+    thead th { background:var(--card-bg); padding:11px 14px; font-size:0.72rem; font-weight:700; letter-spacing:0.8px; text-transform:uppercase; color:var(--slate); text-align:left; white-space:nowrap; border-bottom:1px solid var(--card-border); }
+    tbody tr { border-bottom:1px solid var(--row-border); transition:background var(--transition); }
+    tbody tr:hover { background:var(--hover-bg); }
+    tbody tr:last-child { border-bottom:none; }
+    tbody td { padding:12px 14px; font-size:0.83rem; vertical-align:middle; }
+    .td-muted { color:var(--slate); }
+    .td-center { text-align:center; }
+    .mono-id { font-family:'JetBrains Mono',monospace; font-size:0.78rem; color:var(--sky); }
+    .ellipsis { max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .actions { display:flex; gap:5px; flex-wrap:wrap; align-items:center; }
+
+    /* STATUS */
+    .status { display:inline-flex; align-items:center; gap:5px; font-size:0.72rem; font-weight:700; padding:3px 10px; border-radius:20px; text-transform:uppercase; letter-spacing:0.4px; white-space:nowrap; }
+    .status::before { content:''; width:6px; height:6px; border-radius:50%; background:currentColor; flex-shrink:0; }
+    .status-pending, .status-return_pending { background:rgba(243,156,18,0.15); color:var(--gold); }
+    .status-approved, .status-approved_partial_returned, .status-return_confirmed { background:rgba(46,204,113,0.15); color:var(--accent); }
+    .status-rejected, .status-return_rejected { background:rgba(231,76,60,0.15); color:var(--red); }
+    .status-hr_confirmed, .status-hr_confirmed_partial_returned { background:rgba(52,152,219,0.15); color:var(--sky); }
+    .status-hr_returned { background:rgba(230,126,34,0.15); color:var(--orange); }
+    .status-returned { background:rgba(142,68,173,0.15); color:var(--lilac); }
+    .status-employee, .status-lecturer { background:rgba(52,152,219,0.15); color:var(--blue); }
+
+    .return-badge { display:inline-flex; align-items:center; gap:5px; font-size:0.72rem; font-weight:700; padding:2px 9px; border-radius:20px; white-space:nowrap; }
+    .return-badge-return_pending   { background:rgba(142,68,173,0.15); color:var(--lilac); }
+    .return-badge-return_confirmed { background:rgba(46,204,113,0.15);  color:var(--accent); }
+    .return-badge-return_rejected  { background:rgba(208,57,43,0.15);   color:var(--red); }
+
+    /* MODAL */
+    .modal-overlay { position:fixed; inset:0; background:rgba(7,17,36,0.8); backdrop-filter:blur(6px); z-index:500; display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; visibility:hidden; transition:all .25s ease; }
+    .modal-overlay.open { opacity:1; visibility:visible; }
+    .modal { background:var(--navy-light); border:1px solid var(--card-border); border-radius:18px; width:100%; max-width:560px; max-height:88vh; display:flex; flex-direction:column; transform:scale(0.95) translateY(10px); transition:transform .25s ease; }
+    .modal-overlay.open .modal { transform:none; }
+    .modal-header { flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:20px 24px; border-bottom:1px solid var(--card-border); }
+    .modal-title { font-size:1rem; font-weight:700; }
+    .modal-close { width:30px; height:30px; border-radius:8px; background:var(--card-bg); border:1px solid var(--card-border); color:var(--slate); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:1.1rem; transition:all var(--transition); }
+    .modal-close:hover { background:rgba(231,76,60,0.15); color:var(--red); }
+    .modal-body { padding:22px 24px; overflow-y:auto; flex:1; }
+    .modal-footer { flex-shrink:0; padding:16px 24px; border-top:1px solid var(--card-border); display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
+
+    .holiday-alert { background:rgba(142,68,173,0.15); border:1px solid rgba(142,68,173,0.4); border-radius:var(--radius-sm); padding:16px 18px; margin-bottom:16px; }
+    .holiday-alert-title { font-size:0.9rem; font-weight:700; color:var(--lilac); margin-bottom:6px; }
+    .holiday-alert-body  { font-size:0.83rem; color:var(--slate); line-height:1.6; }
+
+    .toast-container { position:fixed; bottom:22px; right:22px; z-index:9999; display:flex; flex-direction:column; gap:8px; }
+    .toast { background:var(--navy-light); border:1px solid var(--card-border); border-radius:var(--radius-sm); padding:11px 17px; font-size:0.82rem; font-weight:500; max-width:340px; box-shadow:0 8px 32px rgba(0,0,0,0.4); animation:slideIn .3s ease; }
+    @keyframes slideIn { from { transform:translateX(100%); opacity:0; } to { transform:none; opacity:1; } }
+    .toast.success { border-left:3px solid var(--accent); }
+    .toast.error   { border-left:3px solid var(--red); }
+    .toast.info    { border-left:3px solid var(--blue); }
+
+    .empty-state { text-align:center; padding:56px 20px; color:var(--slate); }
+    .empty-icon { font-size:3rem; margin-bottom:12px; }
+    .empty-text { font-size:0.9rem; }
+    .loading { display:flex; align-items:center; justify-content:center; padding:40px; }
+    .spinner { width:34px; height:34px; border:3px solid rgba(128,128,128,0.15); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; display:inline-block; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* TIMELINE */
+    .timeline { padding:8px 0; }
+    .tl-item { display:flex; gap:16px; padding-bottom:22px; }
+    .tl-item:last-child { padding-bottom:0; }
+    .tl-left { display:flex; flex-direction:column; align-items:center; flex-shrink:0; width:34px; }
+    .tl-dot { width:14px; height:14px; border-radius:50%; border:3px solid var(--gold); background:var(--navy-light); flex-shrink:0; z-index:1; }
+    .tl-line { width:2px; flex:1; background:var(--card-border); margin-top:4px; }
+    .tl-dot.approved, .tl-dot.return_confirmed { border-color:var(--accent); }
+    .tl-dot.rejected, .tl-dot.return_rejected { border-color:var(--red); }
+    .tl-dot.hr_confirmed { border-color:var(--sky); }
+    .tl-dot.hr_returned  { border-color:var(--orange); }
+    .tl-dot.returned     { border-color:var(--lilac); }
+    .tl-content { flex:1; min-width:0; }
+    .tl-time { font-size:0.72rem; color:var(--slate); font-family:'JetBrains Mono',monospace; margin-bottom:5px; }
+    .tl-card { background:var(--card-bg); border:1px solid var(--card-border); border-radius:var(--radius-sm); padding:11px 13px; }
+    .tl-head { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:4px; }
+    .tl-actor { font-size:0.85rem; font-weight:600; }
+    .tl-dept { font-size:0.75rem; color:var(--slate); margin-bottom:5px; }
+    .tl-note { font-size:0.8rem; background:var(--card-bg); padding:6px 10px; border-radius:6px; border-left:3px solid var(--card-border); margin-top:5px; font-style:italic; }
+    .section-caption { font-size:0.78rem; font-weight:700; letter-spacing:0.8px; text-transform:uppercase; color:var(--slate); margin-bottom:12px; }
+
+    .detail-row { display:flex; justify-content:space-between; align-items:flex-start; padding:9px 0; border-bottom:1px solid var(--card-border); }
+    .detail-row:last-child { border-bottom:none; }
+    .detail-label { font-size:0.78rem; color:var(--slate); flex-shrink:0; margin-right:16px; min-width:130px; }
+    .detail-value { font-size:0.85rem; font-weight:500; text-align:right; word-break:break-word; }
+
+    .dept-btn { width:100%; padding:13px 17px; background:var(--card-bg); border:1px solid var(--card-border); border-radius:var(--radius-sm); color:var(--white); font-size:0.9rem; font-weight:600; cursor:pointer; text-align:left; transition:all var(--transition); font-family:inherit; display:flex; align-items:center; gap:12px; }
+    .dept-btn:hover { border-color:var(--accent); color:var(--accent); background:rgba(232,160,32,0.08); }
+
+    .leave-info-box { background:var(--card-bg); border:1px solid var(--card-border); border-left:3px solid var(--accent); border-radius:var(--radius-sm); padding:12px 16px; margin-bottom:14px; }
+    .lib-title { font-size:0.72rem; font-weight:700; letter-spacing:0.8px; text-transform:uppercase; color:var(--slate); margin-bottom:10px; }
+    .lib-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:8px; }
+    .lib-item { text-align:center; }
+    .lib-val { font-size:1.4rem; font-weight:800; line-height:1; }
+    .lib-lbl { font-size:0.68rem; color:var(--slate); margin-top:3px; }
+    .leave-info-bar { height:6px; background:rgba(255,255,255,0.08); border-radius:3px; overflow:hidden; display:flex; }
+    .leave-info-bar > .used { height:100%; background:linear-gradient(90deg,var(--accent),var(--gold)); }
+    .leave-info-bar > .used.danger { background:linear-gradient(90deg,var(--red),var(--orange)); }
+    .leave-info-bar > .extra { height:100%; background:rgba(232,160,32,0.35); }
+    .lib-foot { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; font-size:0.7rem; color:var(--slate); margin-top:4px; }
+    .lib-list { margin-top:8px; padding-top:8px; border-top:1px solid var(--card-border); font-size:0.72rem; color:var(--slate); }
+    .lib-list-row { display:flex; justify-content:space-between; padding:2px 0; }
+    .lib-note { margin-top:6px; font-size:0.78rem; border-radius:4px; padding:5px 10px; line-height:1.6; }
+
+    .return-panel { margin:14px 0 4px; padding:10px 14px; border-radius:var(--radius-sm); border:1px solid rgba(142,68,173,0.35); background:rgba(142,68,173,0.1); }
+    .return-panel-title { font-size:0.78rem; font-weight:700; color:var(--lilac); margin-bottom:8px; }
+    .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:0.82rem; }
+    .grid-2 .full { grid-column:1/-1; }
+    .grid-2 .lbl { color:var(--slate); font-size:0.75rem; }
+    .preview-box { display:none; background:rgba(46,204,113,0.1); border:1px solid rgba(46,204,113,0.3); border-radius:var(--radius-sm); padding:12px 14px; font-size:0.83rem; }
+
+    .holiday-type-badge { display:inline-flex; align-items:center; gap:5px; font-size:0.75rem; font-weight:700; padding:3px 10px; border-radius:20px; }
+    .holiday-type-summer { background:rgba(243,156,18,0.15); color:var(--gold); }
+    .holiday-type-tet    { background:rgba(231,76,60,0.15);  color:var(--red); }
+
+    @keyframes shake { 0%,100% { transform:translateX(0); } 20% { transform:translateX(-8px); } 40% { transform:translateX(8px); } 60% { transform:translateX(-5px); } 80% { transform:translateX(5px); } }
+    .menu-toggle { display:none; background:transparent; border:none; color:var(--white); font-size:1.3rem; cursor:pointer; padding:4px; }
+    .sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:99; }
+    ::-webkit-scrollbar { width:5px; height:5px; }
+    ::-webkit-scrollbar-thumb { background:var(--navy-mid); border-radius:3px; }
+
+    @media (max-width:768px) {
+      .sidebar { transform:translateX(-100%); }
+      .sidebar.open { transform:none; }
+      .sidebar-overlay.show { display:block; }
+      .main { margin-left:0; }
+      .menu-toggle { display:block; }
+      .page { padding:14px; }
+      .stat-grid { grid-template-columns:1fr 1fr; }
+      .form-row { grid-template-columns:1fr; }
+      .lib-grid { grid-template-columns:repeat(2,1fr); }
+      .topbar { padding:0 14px; }
+      .topbar-logo { display:none; }
+      thead { display:none; }
+      tbody tr { display:block; padding:11px; border-bottom:1px solid var(--card-border); }
+      tbody td { display:flex; justify-content:space-between; gap:10px; padding:4px 0; font-size:0.8rem; text-align:right; }
+      tbody td::before { content:attr(data-label); color:var(--slate); font-size:0.72rem; font-weight:600; text-align:left; }
+      .ellipsis { max-width:60%; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ĐĂNG NHẬP -->
+<div id="page-login">
+  <div class="login-bg"></div>
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">
+        <img src="https://drive.google.com/thumbnail?id=1FfCVDePSPSRvp2uf12xtrB4AYIpab-SG&sz=w200"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"
+             style="width:52px;height:52px;object-fit:contain" alt="UMP" />
+        <span style="display:none">🏥</span>
+      </div>
+      <h1>HRM - Sổ tay Quản lý nghỉ phép</h1>
+      <p>Đại học Y Dược TP. Hồ Chí Minh</p>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="login-cccd">SỐ CĂN CƯỚC CÔNG DÂN (CCCD)</label>
+      <div style="position:relative">
+        <input type="text" id="login-cccd" class="form-input mono" inputmode="numeric"
+               placeholder="Nhập 12 số CCCD..." maxlength="12" autocomplete="off"
+               oninput="onCCCDInput(this)"
+               onkeydown="if(event.key==='Enter'&&this.value.length===12)doLogin()" />
+        <span id="cccd-counter" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);font-size:0.72rem;font-family:'JetBrains Mono',monospace;color:var(--muted);pointer-events:none">0/12</span>
+      </div>
+      <div class="form-hint">Nhập đủ 12 số (kể cả số 0 ở đầu) — hệ thống tự động đăng nhập</div>
+    </div>
+    <button class="btn btn-primary" id="login-btn" style="width:100%;padding:13px;font-size:0.95rem" disabled onclick="doLogin()">🔐 Đăng nhập</button>
+    <div id="login-error" class="login-error"></div>
+  </div>
+</div>
+
+<!-- MODAL: CHỌN ĐƠN VỊ -->
+<div class="modal-overlay" id="modal-select-dept">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">🏢 Chọn đơn vị làm việc</div>
+      <button class="modal-close" onclick="closeModal('modal-select-dept')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--slate);font-size:0.85rem;margin-bottom:6px">Xin chào <strong id="dept-select-name" style="color:var(--white)"></strong>!</p>
+      <p style="color:var(--slate);font-size:0.82rem;margin-bottom:18px">Bạn quản lý nhiều đơn vị. Vui lòng chọn đơn vị để tiếp tục:</p>
+      <div id="dept-list" style="display:flex;flex-direction:column;gap:10px"></div>
+    </div>
+  </div>
+</div>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- KHUNG ỨNG DỤNG -->
+<div id="app" style="display:none">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <div class="logo-icon">
+          <img src="https://drive.google.com/thumbnail?id=1FfCVDePSPSRvp2uf12xtrB4AYIpab-SG&sz=w100"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"
+               style="width:34px;height:34px;object-fit:contain" alt="UMP" />
+          <span style="display:none">📋</span>
+        </div>
+        <div class="logo-text">
+          <strong>HRM System</strong>
+          <span>Sổ tay Quản lý nghỉ phép năm</span>
+        </div>
+      </div>
+    </div>
+    <div class="sidebar-user">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <div class="user-info">
+          <div class="name" id="sidebar-name">...</div>
+          <div class="role-badge" id="sidebar-role-badge">...</div>
+        </div>
+      </div>
+      <div style="font-size:0.7rem;color:var(--slate);margin-top:7px" id="sidebar-dept">...</div>
+    </div>
+    <div id="holiday-info-box" style="display:none"></div>
+    <nav class="sidebar-nav" id="sidebar-nav"></nav>
+    <div class="sidebar-footer">
+      <div class="leave-quota">
+        <div class="quota-label" id="quota-label">Phép năm học</div>
+        <div class="quota-bar"><div class="quota-fill" id="quota-fill" style="width:0%"></div></div>
+        <div class="quota-numbers">
+          <span class="quota-used" id="quota-used">Đã dùng: 0 ngày</span>
+          <span class="quota-remain" id="quota-remain">Còn: 0 ngày</span>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="doLogout()"><span>⏻</span> Đăng xuất</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+      <img class="topbar-logo" src="https://drive.google.com/thumbnail?id=1FfCVDePSPSRvp2uf12xtrB4AYIpab-SG&sz=w100"
+           onerror="this.style.display='none'" style="width:32px;height:32px;object-fit:contain;flex-shrink:0" alt="UMP" />
+      <div class="topbar-titles">
+        <div class="topbar-title" id="topbar-title">Dashboard</div>
+        <div class="topbar-subtitle" id="topbar-subtitle">Tổng quan</div>
+      </div>
+      <div class="topbar-actions" id="topbar-actions"></div>
+      <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Chuyển giao diện sáng/tối">☀️</button>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="stat-grid" id="dashboard-stats"></div>
+      <div class="section-header">
+        <div><div class="section-title">Đơn nghỉ gần đây</div><div class="section-sub">Hoạt động mới nhất</div></div>
+      </div>
+      <div class="table-wrap"><div id="recent-requests-container"></div></div>
+    </div>
+
+    <!-- ĐƠN CỦA TÔI -->
+    <div class="page" id="page-my-requests">
+      <div class="filter-bar">
+        <select class="form-input" id="filter-status" onchange="loadMyRequests()">
+          <option value="all">Tất cả trạng thái</option>
+          <option value="pending">Chờ trưởng ĐV duyệt</option>
+          <option value="approved">Trưởng ĐV đồng ý</option>
+          <option value="rejected">Trưởng ĐV không đồng ý</option>
+          <option value="hr_confirmed">Nhân sự đã xác nhận</option>
+          <option value="hr_returned">Nhân sự trả lại</option>
+          <option value="returned">Đã trả phép (toàn bộ)</option>
+          <option value="return_pending">⏳ Chờ duyệt trả phép</option>
+        </select>
+        <input type="date" class="form-input" id="filter-from" title="Từ ngày" onchange="loadMyRequests()" />
+        <input type="date" class="form-input" id="filter-to" title="Đến ngày" onchange="loadMyRequests()" />
+      </div>
+      <div class="table-wrap"><div id="my-requests-container"></div></div>
+    </div>
+
+    <!-- PHÊ DUYỆT -->
+    <div class="page" id="page-approval">
+      <div class="filter-bar">
+        <select class="form-input" id="filter-approval-status" onchange="loadApprovalRequests()">
+          <option value="pending">Chờ duyệt</option>
+          <option value="all">Tất cả</option>
+          <option value="approved">Đã duyệt</option>
+          <option value="rejected">Từ chối</option>
+        </select>
+        <select class="form-input" id="filter-approval-dept" onchange="loadApprovalRequests()">
+          <option value="all">Tất cả đơn vị</option>
+        </select>
+      </div>
+      <div class="table-wrap"><div id="approval-container"></div></div>
+    </div>
+
+    <!-- NHÂN SỰ: TẤT CẢ ĐƠN -->
+    <div class="page" id="page-hr">
+      <div class="stat-grid" id="hr-stats"></div>
+      <div class="section-header">
+        <div><div class="section-title">Tất cả đơn nghỉ phép</div><div class="section-sub">Quản lý & ghi nhận</div></div>
+        <button class="btn btn-secondary btn-sm" onclick="exportExcel()">📊 Xuất Excel</button>
+      </div>
+      <div class="filter-bar">
+        <select class="form-input" id="filter-hr-status" onchange="loadHRRequests()">
+          <option value="all">Tất cả trạng thái</option>
+          <option value="pending">Chờ trưởng ĐV duyệt</option>
+          <option value="approved">Trưởng ĐV đồng ý (chờ nhân sự)</option>
+          <option value="rejected">Trưởng ĐV không đồng ý</option>
+          <option value="hr_confirmed">Nhân sự đã xác nhận</option>
+          <option value="hr_returned">Nhân sự trả lại</option>
+          <option value="returned">Đã trả phép (toàn bộ)</option>
+          <option value="return_pending">⏳ Chờ duyệt trả phép</option>
+        </select>
+        <input type="date" class="form-input" id="filter-hr-from" title="Từ ngày" onchange="loadHRRequests()" />
+        <input type="date" class="form-input" id="filter-hr-to" title="Đến ngày" onchange="loadHRRequests()" />
+        <input type="text" class="form-input" id="filter-hr-search" placeholder="🔍 Tìm tên / CCCD / đơn vị..." oninput="debounce('hrSearch', renderHRList, 250)" />
+      </div>
+      <div class="table-wrap"><div id="hr-requests-container"></div></div>
+    </div>
+
+    <!-- KỲ NGHỈ GIẢNG VIÊN -->
+    <div class="page" id="page-holidays">
+      <div class="section-header">
+        <div>
+          <div class="section-title">⛱️ Cài đặt kỳ nghỉ Giảng viên</div>
+          <div class="section-sub">Nghỉ hè & Nghỉ Tết — áp dụng cho Giảng viên và Trưởng ĐV (Giảng viên)</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="holiday-year-filter" class="form-input" style="width:auto;padding:6px 10px;font-size:0.8rem" onchange="loadHolidaySettings()"></select>
+          <button class="btn btn-primary btn-sm" onclick="openHolidayModal()">➕ Thêm kỳ nghỉ</button>
+        </div>
+      </div>
+      <div class="info-panel">
+        <div class="info-panel-title">📌 Hướng dẫn</div>
+        <div class="info-panel-body">
+          Kỳ nghỉ được cài theo <strong>năm học (01/07 – 30/06 năm sau)</strong>. Khi Giảng viên tạo đơn trùng với kỳ nghỉ đã cài,
+          hệ thống <strong style="color:var(--lilac)">tự động từ chối</strong> vì đây là kỳ nghỉ chính thức.
+          Ngoài kỳ nghỉ này, giảng viên vẫn tạo đơn và trừ phép năm bình thường.
+        </div>
+      </div>
+      <div class="table-wrap"><div id="holiday-container"></div></div>
+    </div>
+
+    <!-- NHÂN VIÊN -->
+    <div class="page" id="page-employees">
+      <div class="section-header">
+        <div><div class="section-title">Danh sách nhân viên</div><div class="section-sub" id="employees-sub">Quản lý hồ sơ nhân sự</div></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="text" class="form-input" id="filter-emp-search" placeholder="🔍 Tìm tên / CCCD / đơn vị..." style="width:240px;padding:6px 12px;font-size:0.8rem" oninput="debounce('empSearch', renderEmployees, 250)" />
+          <button class="btn btn-primary btn-sm" onclick="openEmployeeModal()">➕ Thêm nhân viên</button>
+        </div>
+      </div>
+      <div class="table-wrap"><div id="employees-container"></div></div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL: TẠO ĐƠN NGHỈ -->
+<div class="modal-overlay" id="modal-create">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">📝 Tạo đơn xin nghỉ phép</div>
+      <button class="modal-close" onclick="closeModal('modal-create')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="lecturer-holiday-warn" class="holiday-alert" style="display:none">
+        <div class="holiday-alert-title">🎓 Thông báo kỳ nghỉ Giảng viên</div>
+        <div class="holiday-alert-body" id="lecturer-holiday-warn-text"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">TỪ NGÀY *</label>
+          <input type="date" id="req-from" class="form-input" onchange="calcDays()" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">ĐẾN NGÀY *</label>
+          <input type="date" id="req-to" class="form-input" onchange="calcDays()" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">LOẠI NGHỈ</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <label class="choice"><input type="radio" name="half_day" value="none" checked onchange="onHalfDayChange()" /> 📅 Cả ngày</label>
+          <label class="choice"><input type="radio" name="half_day" value="morning" onchange="onHalfDayChange()" /> 🌤️ Buổi sáng</label>
+          <label class="choice"><input type="radio" name="half_day" value="afternoon" onchange="onHalfDayChange()" /> 🌇 Buổi chiều</label>
+        </div>
+        <div class="form-hint" id="half-day-hint">Chọn "Buổi sáng" hoặc "Buổi chiều" nếu chỉ nghỉ nửa ngày (= 0.5 ngày phép)</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">SỐ NGÀY LÀM VIỆC</label>
+        <input type="text" id="req-days" class="form-input" readonly style="background:rgba(232,160,32,0.08);color:var(--accent);font-weight:700" placeholder="Tự động tính sau khi chọn ngày" />
+        <div class="form-hint" id="req-year-hint"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">LÝ DO NGHỈ *</label>
+        <textarea id="req-reason" class="form-input" rows="3" placeholder="Nhập lý do xin nghỉ phép..." style="resize:vertical"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">FILE ĐÍNH KÈM (tùy chọn)</label>
+        <input type="url" id="req-attachment" class="form-input" placeholder="URL file Google Drive (nếu có)" />
+        <div class="form-hint">Upload file lên Google Drive rồi dán link vào đây</div>
+      </div>
+      <div id="create-error" class="form-error"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-create')">Hủy</button>
+      <button class="btn btn-primary" onclick="submitLeaveRequest()" id="submit-btn">📤 Gửi đơn</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: HẾT PHÉP -->
+<div class="modal-overlay" id="modal-no-leave">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <div class="modal-title">🚫 Không thể tạo đơn</div>
+      <button class="modal-close" onclick="closeModal('modal-no-leave')">✕</button>
+    </div>
+    <div class="modal-body" id="no-leave-body" style="text-align:center"></div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('modal-no-leave')">Đóng</button></div>
+  </div>
+</div>
+
+<!-- MODAL: CHI TIẾT / XỬ LÝ ĐƠN -->
+<div class="modal-overlay" id="modal-approve">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <div class="modal-title" id="approve-modal-title">Chi tiết đơn</div>
+      <button class="modal-close" onclick="closeModal('modal-approve')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <div id="detail-panel" style="padding:18px 24px"></div>
+      <div id="timeline-section" style="padding:14px 24px 8px;border-top:1px solid var(--card-border);margin:0 24px;padding-left:0;padding-right:0">
+        <div class="section-caption">🕐 Tiến trình xử lý hồ sơ</div>
+        <div id="timeline-container"></div>
+      </div>
+    </div>
+    <div class="modal-footer" id="approve-modal-footer"></div>
+  </div>
+</div>
+
+<!-- MODAL: TRẢ PHÉP -->
+<div class="modal-overlay" id="modal-return">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <div class="modal-title">↩️ Trả phép — <span id="return-req-id" class="mono-id"></span></div>
+      <button class="modal-close" onclick="closeModal('modal-return')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="return-orig-info" style="background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:18px"></div>
+      <div class="form-group">
+        <label class="form-label">LOẠI TRẢ PHÉP *</label>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <label class="choice block"><input type="radio" name="return_type" value="full" checked onchange="onReturnTypeChange()" />
+            <div><div>↩️ Trả toàn bộ</div><div class="choice-sub">Hủy toàn bộ đơn, hoàn 100% ngày phép</div></div></label>
+          <label class="choice block" id="rtl-partial"><input type="radio" name="return_type" value="partial" onchange="onReturnTypeChange()" />
+            <div><div>📅 Trả một phần</div><div class="choice-sub">Trả lại một số ngày, vẫn nghỉ phần còn lại</div></div></label>
+          <label class="choice block" id="rtl-half"><input type="radio" name="return_type" value="half" onchange="onReturnTypeChange()" />
+            <div><div>🌤️ Trả nửa ngày</div><div class="choice-sub">Trả lại buổi sáng hoặc buổi chiều (0.5 ngày)</div></div></label>
+        </div>
+      </div>
+      <div class="form-group" id="partial-days-group" style="display:none">
+        <label class="form-label">SỐ NGÀY MUỐN TRẢ *</label>
+        <input type="number" id="return-days-input" class="form-input" placeholder="Nhập số ngày (có thể là X.5)" min="0.5" step="0.5" oninput="updateReturnPreview()" />
+        <div class="form-hint" id="return-days-hint"></div>
+      </div>
+      <div class="form-group" id="half-session-group" style="display:none">
+        <label class="form-label">CHỌN BUỔI TRẢ *</label>
+        <div style="display:flex;gap:10px">
+          <label class="choice"><input type="radio" name="return_session" value="morning" onchange="updateReturnPreview()" /> 🌤️ Buổi sáng</label>
+          <label class="choice"><input type="radio" name="return_session" value="afternoon" onchange="updateReturnPreview()" /> 🌇 Buổi chiều</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">LÝ DO TRẢ PHÉP *</label>
+        <textarea id="return-reason" class="form-input" rows="2" placeholder="Ví dụ: Sắp xếp được công việc, không cần nghỉ nữa..."></textarea>
+      </div>
+      <div id="return-preview" class="preview-box"></div>
+      <div id="return-error" class="form-error"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-return')">Hủy</button>
+      <button class="btn btn-primary" onclick="submitReturn()" id="submit-return-btn">↩️ Gửi yêu cầu trả phép</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: KỲ NGHỈ -->
+<div class="modal-overlay" id="modal-holiday">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title" id="holiday-modal-title">⛱️ Thêm kỳ nghỉ Giảng viên</div>
+      <button class="modal-close" onclick="closeModal('modal-holiday')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">NĂM HỌC *</label>
+          <select id="h-year" class="form-input" onchange="updateHolidayHint()"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">LOẠI KỲ NGHỈ *</label>
+          <select id="h-type" class="form-input">
+            <option value="summer">⛱️ Nghỉ hè</option>
+            <option value="tet">🎆 Nghỉ Tết</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">TỪ NGÀY *</label>
+          <input type="date" id="h-from" class="form-input" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">ĐẾN NGÀY *</label>
+          <input type="date" id="h-to" class="form-input" />
+        </div>
+      </div>
+      <div class="form-hint" id="h-year-hint" style="margin:-8px 0 12px"></div>
+      <div class="form-group">
+        <label class="form-label">GHI CHÚ</label>
+        <input type="text" id="h-note" class="form-input" placeholder="Ví dụ: Theo QĐ số 123/QĐ-ĐHYD" />
+      </div>
+      <div id="holiday-error" class="form-error"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-holiday')">Hủy</button>
+      <button class="btn btn-primary" onclick="submitHoliday()">💾 Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: THÊM / SỬA NHÂN VIÊN -->
+<div class="modal-overlay" id="modal-employee">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="employee-modal-title">➕ Thêm nhân viên mới</div>
+      <button class="modal-close" onclick="closeModal('modal-employee')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="emp-mode" value="create" />
+      <input type="hidden" id="emp-orig-dept" value="" />
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">SỐ CCCD *</label>
+          <input type="text" id="emp-cccd" class="form-input mono" inputmode="numeric" placeholder="12 số CCCD" maxlength="12" oninput="this.value=this.value.replace(/\D/g,'')" />
+          <div class="form-hint">Nhập đủ 12 số, kể cả số 0 ở đầu</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">HỌ TÊN *</label>
+          <input type="text" id="emp-name" class="form-input" placeholder="Nguyễn Văn A" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">ĐƠN VỊ *</label>
+          <input type="text" id="emp-dept" class="form-input" placeholder="Khoa CNTT" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">VAI TRÒ *</label>
+          <select id="emp-role" class="form-input">
+            <option value="employee">👤 Nhân viên</option>
+            <option value="lecturer">🎓 Giảng viên</option>
+            <option value="manager">👔 Trưởng đơn vị</option>
+            <option value="manager_lecturer">🎓👔 Trưởng ĐV (Giảng viên)</option>
+            <option value="hr">🏢 Phòng Nhân sự</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">NGÀY VÀO LÀM *</label>
+          <input type="date" id="emp-start" class="form-input" oninput="previewLeave(this.value)" />
+          <div class="form-hint" id="leave-preview">Dùng để tính ngày phép theo thâm niên</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">EMAIL</label>
+          <input type="email" id="emp-email" class="form-input" placeholder="email@ump.edu.vn" />
+        </div>
+      </div>
+      <div id="employee-error" class="form-error"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-employee')">Hủy</button>
+      <button class="btn btn-primary" id="employee-submit-btn" onclick="submitEmployee()">➕ Thêm</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ============================================================
+// HẰNG SỐ
+// ============================================================
+const LEAVE_YEAR_START_MONTH = 7; // Năm học bắt đầu 01/07
+
+const ROLE_LABELS = {
+  employee: '👤 Nhân viên', lecturer: '🎓 Giảng viên', manager: '👔 Trưởng đơn vị',
+  manager_lecturer: '🎓 Trưởng ĐV (GV)', hr: '🏢 Phòng Nhân sự'
+};
+const STATUS_LABELS = {
+  pending:                       ['Chờ duyệt',    'Chờ trưởng ĐV duyệt'],
+  approved:                      ['ĐV đồng ý',    'Trưởng ĐV đồng ý'],
+  rejected:                      ['Không đồng ý', 'Trưởng ĐV không đồng ý'],
+  hr_confirmed:                  ['NS xác nhận',  'Nhân sự đã xác nhận'],
+  hr_returned:                   ['NS trả lại',   'Nhân sự trả lại'],
+  returned:                      ['Đã trả phép',  'Đã trả phép (toàn bộ)'],
+  approved_partial_returned:     ['Trả 1 phần',   'Trưởng ĐV đồng ý · đã trả 1 phần'],
+  hr_confirmed_partial_returned: ['Trả 1 phần',   'Nhân sự xác nhận · đã trả 1 phần']
+};
+const RETURN_STATUS_LABELS = {
+  return_pending: '⏳ Chờ Nhân sự duyệt trả', return_confirmed: '✅ Đã trả phép', return_rejected: '❌ Trả phép bị từ chối'
+};
+const HOLIDAY_LABELS = { summer: '⛱️ Nghỉ hè', tet: '🎆 Nghỉ Tết' };
+const RETURN_TYPE_LABELS = { full: 'Toàn bộ', partial: 'Một phần', half: 'Nửa ngày' };
+
+const isLecturer = r => r === 'lecturer' || r === 'manager_lecturer';
+const isManager  = r => r === 'manager'  || r === 'manager_lecturer';
+const isHR       = r => r === 'hr';
+const canApprove = r => isManager(r) || isHR(r);
+const baseStatus = s => String(s || '').replace(/(_partial_returned)+$/, '');
+const isUsedStatus = s => ['approved', 'hr_confirmed'].includes(baseStatus(s));
+
+// ============================================================
+// TRẠNG THÁI
+// ============================================================
+const state = {
+  token: localStorage.getItem('hrm_token') || null,
+  user: loadJSON('hrm_user'),
+  currentPage: 'dashboard',
+  pendingCCCD: null,
+  holidays: [],    // toàn bộ kỳ nghỉ GV (mọi năm học)
+  hrList: [],      // danh sách đơn đang hiển thị ở trang Nhân sự
+  employees: []
+};
+const requestCache = {};
+const employeeCache = {};
+let returningReq = null;
+
+// ============================================================
+// TIỆN ÍCH
+// ============================================================
+const $ = id => document.getElementById(id);
+function loadJSON(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (_) { return null; } }
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function fmtDays(n) { const v = parseFloat(n) || 0; return Number.isInteger(v) ? String(v) : v.toFixed(1); }
+function getRadio(name) { return document.querySelector(`input[name="${name}"]:checked`)?.value || ''; }
+function setRadio(name, value) { document.querySelectorAll(`input[name="${name}"]`).forEach(r => r.checked = r.value === value); }
+const _timers = {};
+function debounce(key, fn, ms) { clearTimeout(_timers[key]); _timers[key] = setTimeout(fn, ms); }
+
+function parseDate(str) {
+  if (!str) return null;
+  const s = String(str).trim(); let m;
+  if ((m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/))) return new Date(+m[3], +m[2] - 1, +m[1]);
+  if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/)))           return new Date(+m[1], +m[2] - 1, +m[3]);
+  return null;
+}
+function formatDate(s) {
+  const d = parseDate(s);
+  return d ? String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear() : (s || '—');
+}
+function isoToVN(iso) { const p = String(iso || '').split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : iso; }
+function vnToISO(vn) { const d = parseDate(vn); return d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` : ''; }
+function todayISO() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+
+/** Năm bắt đầu của năm học chứa ngày d */
+function leaveYearOf(d) { d = d || new Date(); return d.getMonth() >= LEAVE_YEAR_START_MONTH - 1 ? d.getFullYear() : d.getFullYear() - 1; }
+function leaveYearLabel(y) { return `${y}-${y + 1}`; }
+function leaveYearOptions(selected) {
+  const cur = leaveYearOf();
+  let html = '';
+  for (let y = cur - 1; y <= cur + 2; y++) html += `<option value="${y}" ${y === selected ? 'selected' : ''}>Năm học ${leaveYearLabel(y)}</option>`;
+  return html;
+}
+
+function yearsSince(s) {
+  const d = parseDate(s); if (!d) return 0;
+  const n = new Date(); let y = n.getFullYear() - d.getFullYear();
+  if (n.getMonth() < d.getMonth() || (n.getMonth() === d.getMonth() && n.getDate() < d.getDate())) y--;
+  return Math.max(0, y);
+}
+function annualLeaveFrom(s) { return parseDate(s) ? Math.min(12 + Math.floor(yearsSince(s) / 5), 18) : 12; }
+function calcWorkingDays(s, e) { let c = 0; const d = new Date(s); while (d <= e) { const w = d.getDay(); if (w && w !== 6) c++; d.setDate(d.getDate() + 1); } return c; }
+function availableDays(u) { return (u.annual_leave_days || 0) - (u.used_leave_days || 0) - (u.pending_leave_days || 0); }
+
+function openModal(id)  { $(id).classList.add('open'); }
+function closeModal(id) { $(id).classList.remove('open'); }
+function showToast(msg, type = 'info') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`; t.textContent = msg;
+  $('toast-container').appendChild(t);
+  setTimeout(() => t.remove(), 3800);
+}
+function showError(id, msg) { const el = $(id); el.textContent = '⚠️ ' + msg; el.style.display = 'block'; }
+function hideError(id) { $(id).style.display = 'none'; }
+function loadingHTML() { return '<div class="loading"><div class="spinner"></div></div>'; }
+function emptyHTML(icon, text, extra = '') { return `<div class="empty-state"><div class="empty-icon">${icon}</div><div class="empty-text">${esc(text)}</div>${extra}</div>`; }
+function toggleSidebar() { $('sidebar').classList.toggle('open'); $('sidebar-overlay').classList.toggle('show'); }
+function closeSidebar()  { $('sidebar').classList.remove('open'); $('sidebar-overlay').classList.remove('show'); }
+
+/** Lọc đơn theo khoảng ngày (giao nhau với [fromISO, toISO]) */
+function filterByDateRange(reqs, fromISO, toISO) {
+  const fF = fromISO ? new Date(fromISO + 'T00:00:00') : null;
+  const fT = toISO   ? new Date(toISO + 'T00:00:00')   : null;
+  if (!fF && !fT) return reqs;
+  return reqs.filter(r => {
+    const a = parseDate(r.from_date), b = parseDate(r.to_date);
+    if (!a || !b) return true;
+    return (!fF || b >= fF) && (!fT || a <= fT);
+  });
+}
+
+// ============================================================
+// API
+// ============================================================
+// Địa chỉ API = URL Web App của Google Apps Script (khai báo trong config.js)
+const API_URL = (window.HRM_CONFIG && window.HRM_CONFIG.API_URL) || '';
+const RUNNING_IN_APPS_SCRIPT = typeof google !== 'undefined' && google.script && google.script.run;
+
+function callBackend(payload) {
+  // Trường hợp 1: trang vẫn được mở trực tiếp từ Apps Script
+  if (RUNNING_IN_APPS_SCRIPT) {
+    return new Promise((resolve, reject) => {
+      google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).handleApiCall(JSON.stringify(payload));
+    });
+  }
+  // Trường hợp 2: trang chạy trên Cloudflare Pages → gọi Web App qua fetch
+  // Dùng text/plain để trình duyệt không gửi preflight CORS (Apps Script không hỗ trợ OPTIONS)
+  if (!API_URL || API_URL.indexOf('script.google.com') === -1) {
+    return Promise.reject(new Error('Chưa cấu hình API_URL trong config.js'));
+  }
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 60000);
+  return fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload),
+    redirect: 'follow',
+    signal: ctrl.signal
+  }).then(res => {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.text();
+  }).then(text => {
+    try { return JSON.parse(text); }
+    catch (_) { throw new Error('Máy chủ trả về dữ liệu không hợp lệ. Kiểm tra quyền truy cập Web App ("Bất kỳ ai").'); }
+  }).finally(() => clearTimeout(timer));
+}
+
+function apiCall(action, body = {}) {
+  const payload = Object.assign({}, body, { action, token: state.token || '' });
+  return callBackend(payload)
+    .then(r => {
+      r = r || { success: false, message: 'Không có phản hồi từ máy chủ' };
+      if (r.auth_error && state.token) { showToast(r.message, 'error'); doLogout(); }
+      return r;
+    })
+    .catch(e => ({
+      success: false,
+      message: e && e.name === 'AbortError' ? 'Máy chủ phản hồi quá lâu, vui lòng thử lại' : 'Lỗi kết nối: ' + (e && e.message || e)
+    }));
+}
+
+async function refreshMe() {
+  const res = await apiCall('me');
+  if (res.success) {
+    state.user = res.user;
+    localStorage.setItem('hrm_user', JSON.stringify(res.user));
+    updateQuota(res.user);
+    updateTopbarActions();
+  }
+}
+
+// ============================================================
+// ĐĂNG NHẬP
+// ============================================================
+function onCCCDInput(input) {
+  input.value = input.value.replace(/\D/g, '');
+  const len = input.value.length;
+  const ctr = $('cccd-counter');
+  ctr.textContent = len + '/12';
+  ctr.style.color = len === 12 ? 'var(--accent)' : 'var(--muted)';
+  $('login-btn').disabled = len !== 12;
+  clearTimeout(_timers.autoLogin);
+  if (len === 12) _timers.autoLogin = setTimeout(doLogin, 350);
+  else hideError('login-error');
+}
+
+async function doLogin() {
+  const cccd = $('login-cccd').value.trim();
+  const btn = $('login-btn');
+  if (cccd.length !== 12) return showLoginError('Vui lòng nhập đủ 12 số CCCD');
+  if (btn.dataset.busy) return;
+  btn.dataset.busy = '1'; btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px"></span> Đang xác thực...';
+  hideError('login-error');
+  const res = await apiCall('login', { cccd });
+  delete btn.dataset.busy; btn.innerHTML = '🔐 Đăng nhập'; btn.disabled = false;
+  if (!res.success) return showLoginError(res.message || 'Đăng nhập thất bại');
+  if (res.needSelectDept) { state.pendingCCCD = cccd; showDeptSelector(res.name, res.departments); return; }
+  completeLogin(res);
+}
+
+function showDeptSelector(name, departments) {
+  $('dept-select-name').textContent = name;
+  $('dept-list').innerHTML = departments.map(d =>
+    `<button class="dept-btn" data-dept="${esc(d)}" onclick="loginWithDept(this.dataset.dept)">🏢 <span>${esc(d)}</span></button>`).join('');
+  openModal('modal-select-dept');
+}
+
+async function loginWithDept(department) {
+  closeModal('modal-select-dept');
+  const res = await apiCall('login-with-dept', { cccd: state.pendingCCCD, department });
+  if (!res.success) return state.user ? showToast('❌ ' + res.message, 'error') : showLoginError(res.message || 'Đăng nhập thất bại');
+  if (state.token) apiCall('logout');
+  completeLogin(res);
+}
+
+function completeLogin(res) {
+  state.token = res.token; state.user = res.user; state.pendingCCCD = null;
+  localStorage.setItem('hrm_token', res.token);
+  localStorage.setItem('hrm_user', JSON.stringify(res.user));
+  $('page-login').classList.add('hidden');
+  $('app').style.display = 'flex';
+  initApp();
+}
+
+function showLoginError(msg) {
+  showError('login-error', msg);
+  const card = document.querySelector('.login-card');
+  card.style.animation = 'shake 0.4s ease';
+  setTimeout(() => card.style.animation = '', 400);
+}
+
+function doLogout() {
+  if (state.token) {
+    callBackend({ action: 'logout', token: state.token }).catch(() => {});
+  }
+  localStorage.removeItem('hrm_token'); localStorage.removeItem('hrm_user');
+  Object.assign(state, { token: null, user: null, holidays: [], hrList: [], employees: [] });
+  Object.keys(requestCache).forEach(k => delete requestCache[k]);
+  document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+  $('page-login').classList.remove('hidden');
+  $('app').style.display = 'none';
+  $('login-cccd').value = '';
+  $('cccd-counter').textContent = '0/12';
+  $('login-btn').disabled = true;
+  hideError('login-error');
+}
+
+// ============================================================
+// KHỞI TẠO
+// ============================================================
+async function initApp() {
+  const u = state.user;
+  if (!u) return doLogout();
+  $('user-avatar').textContent = (u.name || '?').trim().split(/\s+/).pop().charAt(0).toUpperCase();
+  $('sidebar-name').textContent = u.name;
+  $('sidebar-dept').textContent = u.departments && u.departments.length > 1
+    ? `${u.department} (+${u.departments.length - 1} đơn vị khác)` : u.department;
+  const rb = $('sidebar-role-badge');
+  rb.className = 'role-badge badge-' + (ROLE_LABELS[u.role] ? u.role : 'employee');
+  rb.textContent = ROLE_LABELS[u.role] || u.role;
+
+  updateQuota(u);
+  buildNav(u.role);
+  if (isLecturer(u.role)) await loadHolidayInfoBox();
+  navigateTo('dashboard');
+}
+
+async function loadHolidayInfoBox() {
+  const res = await apiCall('holiday-settings', { year: 'all' });
+  state.holidays = res.success ? (res.holidays || []) : [];
+  const ly = state.user.leave_year_start || leaveYearOf();
+  const current = state.holidays.filter(h => h.year === ly);
+  const box = $('holiday-info-box');
+  if (!current.length) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = `<div class="holiday-box">
+    <div class="holiday-box-title">Kỳ nghỉ năm học ${leaveYearLabel(ly)}</div>
+    ${current.map(h => `<div class="holiday-item">${HOLIDAY_LABELS[h.type] || esc(h.type)} <span>${esc(h.from_date)} → ${esc(h.to_date)}</span></div>`).join('')}
+  </div>`;
+}
+
+function updateQuota(u) {
+  const used = u.used_leave_days || 0, total = u.annual_leave_days || 12, pending = u.pending_leave_days || 0;
+  $('quota-fill').style.width = Math.min((used / total) * 100, 100) + '%';
+  $('quota-used').textContent = `Đã dùng: ${fmtDays(used)} ngày`;
+  $('quota-remain').textContent = `Còn: ${fmtDays(total - used)} ngày`;
+  $('quota-label').innerHTML = `Phép năm học ${esc(u.leave_year || '')} <span style="color:var(--sky);font-weight:600">(${total} ngày)</span><br>
+    <span style="font-size:0.65rem;color:var(--muted)">${esc(u.leave_year_from || '')} – ${esc(u.leave_year_to || '')} · Thâm niên ${u.seniority_years || 0} năm</span>
+    ${pending > 0 ? `<br><span style="font-size:0.65rem;color:var(--gold)">Đang chờ duyệt: ${fmtDays(pending)} ngày</span>` : ''}`;
+}
+
+function buildNav(role) {
+  const base = [{ icon: '🏠', label: 'Dashboard', page: 'dashboard' }];
+  const mine = { icon: '📄', label: 'Đơn của tôi', page: 'my-requests' };
+  const approval = { icon: '⏳', label: 'Chờ phê duyệt', page: 'approval', badge: true };
+  const items = {
+    employee: [...base, mine], lecturer: [...base, mine],
+    manager: [...base, approval, mine], manager_lecturer: [...base, approval, mine],
+    hr: [...base, { icon: '📋', label: 'Tất cả đơn', page: 'hr', badge: true },
+         { icon: '⛱️', label: 'Kỳ nghỉ GV', page: 'holidays' }, { icon: '👥', label: 'Nhân viên', page: 'employees' }, mine]
+  }[role] || [...base, mine];
+
+  let html = '<div class="nav-section-label">Menu</div>';
+  items.forEach(it => {
+    html += `<div class="nav-item" id="nav-${it.page}" onclick="navigateTo('${it.page}')">
+      <span class="nav-icon">${it.icon}</span><span>${it.label}</span>
+      ${it.badge ? '<span class="nav-badge" id="pending-badge" style="display:none">0</span>' : ''}
+    </div>`;
+  });
+  const u = state.user;
+  if (isManager(role) && u.departments && u.departments.length > 1) {
+    html += `<div style="margin-top:14px">
+      <div class="nav-section-label">Đơn vị đang quản lý</div>
+      ${u.departments.map(d => `<div style="padding:5px 13px;font-size:0.78rem;color:${d === u.department ? 'var(--accent)' : 'var(--slate)'};display:flex;gap:8px">
+        <span>${d === u.department ? '●' : '○'}</span>${esc(d)}</div>`).join('')}
+      <div class="nav-item" onclick="switchDepartment()" style="color:var(--muted);font-size:0.78rem;margin-top:4px">
+        <span class="nav-icon">🔄</span><span>Đổi đơn vị</span></div>
+    </div>`;
+  }
+  $('sidebar-nav').innerHTML = html;
+}
+
+function switchDepartment() {
+  const u = state.user;
+  if (!u || !u.departments || u.departments.length <= 1) return;
+  state.pendingCCCD = u.cccd;
+  showDeptSelector(u.name, u.departments);
+}
+
+// ============================================================
+// ĐIỀU HƯỚNG
+// ============================================================
+const PAGE_META = {
+  dashboard:     { title: 'Dashboard',           sub: 'Tổng quan hệ thống' },
+  'my-requests': { title: 'Đơn nghỉ của tôi',    sub: 'Danh sách đơn xin nghỉ phép' },
+  approval:      { title: 'Phê duyệt đơn',       sub: 'Xem xét và phê duyệt đơn' },
+  hr:            { title: 'Quản lý nghỉ phép',   sub: 'Toàn bộ đơn trong hệ thống' },
+  holidays:      { title: 'Kỳ nghỉ Giảng viên',  sub: 'Cài đặt nghỉ hè & nghỉ Tết theo năm học' },
+  employees:     { title: 'Danh sách nhân viên', sub: 'Quản lý hồ sơ nhân sự' }
+};
+
+function navigateTo(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  $('page-' + page)?.classList.add('active');
+  $('nav-' + page)?.classList.add('active');
+  state.currentPage = page;
+  const meta = PAGE_META[page] || {};
+  $('topbar-title').textContent = meta.title || page;
+  $('topbar-subtitle').textContent = meta.sub || '';
+  updateTopbarActions();
+  ({ dashboard: loadDashboard, 'my-requests': loadMyRequests, approval: loadApprovalRequests,
+     hr: () => { loadHRRequests(); loadHRStats(); }, holidays: loadHolidaySettings, employees: loadEmployees }[page] || (() => {}))();
+  closeSidebar();
+}
+
+function updateTopbarActions() {
+  const el = $('topbar-actions');
+  if (!state.user || !['dashboard', 'my-requests'].includes(state.currentPage)) { el.innerHTML = ''; return; }
+  el.innerHTML = availableDays(state.user) > 0
+    ? `<button class="btn btn-primary btn-sm" onclick="openCreateModal()">✏️ Tạo đơn nghỉ</button>`
+    : `<button class="btn btn-secondary btn-sm" onclick="openCreateModal()" title="Bạn đã hết ngày phép năm học này">🚫 Hết ngày phép</button>`;
+}
+
+function reloadCurrentPage() {
+  const p = state.currentPage;
+  if (p === 'approval') loadApprovalRequests();
+  else if (p === 'hr') { loadHRRequests(); loadHRStats(); }
+  else if (p === 'my-requests') loadMyRequests();
+  else loadDashboard();
+}
+
+function setPendingBadge(n) {
+  const b = $('pending-badge');
+  if (!b) return;
+  b.textContent = n; b.style.display = n > 0 ? 'flex' : 'none';
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+async function loadDashboard() {
+  const statsEl = $('dashboard-stats');
+  const container = $('recent-requests-container');
+  container.innerHTML = loadingHTML();
+  await refreshMe();
+  const u = state.user;
+  if (!u) return;
+
+  if (!canApprove(u.role)) {
+    const used = u.used_leave_days || 0, total = u.annual_leave_days || 12;
+    const rem = total - used, pct = Math.min(Math.round((used / total) * 100), 100);
+    const holidayCards = isLecturer(u.role)
+      ? state.holidays.filter(h => h.year === u.leave_year_start).map(h => `
+        <div class="stat-card purple">
+          <div class="stat-icon">${h.type === 'summer' ? '⛱️' : '🎆'}</div>
+          <div class="stat-value" style="font-size:0.85rem;padding-top:4px">${esc(h.from_date)} → ${esc(h.to_date)}</div>
+          <div class="stat-label">${HOLIDAY_LABELS[h.type] || esc(h.type)} · ${esc(h.year_label)}</div>
+        </div>`).join('') : '';
+    statsEl.innerHTML = `
+      <div class="stat-card green"><div class="stat-icon">📅</div><div class="stat-value">${total}</div>
+        <div class="stat-label">Ngày phép năm học ${esc(u.leave_year)} · ${u.seniority_years || 0} năm thâm niên</div></div>
+      <div class="stat-card blue"><div class="stat-icon">✅</div><div class="stat-value">${fmtDays(used)}</div>
+        <div class="stat-label">Đã sử dụng (${esc(u.leave_year_from)} – ${esc(u.leave_year_to)})</div></div>
+      <div class="stat-card gold"><div class="stat-icon">⏳</div>
+        <div class="stat-value" style="color:${rem <= 2 ? 'var(--red)' : 'var(--gold)'}">${fmtDays(rem)}</div>
+        <div class="stat-label">Còn lại năm học ${esc(u.leave_year)}
+          ${u.pending_leave_days > 0 ? ` · <span style="color:var(--gold)">${fmtDays(u.pending_leave_days)} ngày chờ duyệt</span>` : ''}
+          <div class="mini-bar"><div style="width:${pct}%;background:${pct >= 80 ? 'var(--red)' : 'var(--accent)'}"></div></div>
+          <div style="font-size:0.65rem;margin-top:2px;opacity:0.75">${pct}% đã dùng</div>
+        </div></div>
+      ${holidayCards}`;
+  } else {
+    const res = await apiCall('stats');
+    if (res.success) {
+      const c = res.stats.status_count;
+      statsEl.innerHTML = `
+        <div class="stat-card gold"><div class="stat-icon">⏳</div><div class="stat-value">${c.pending}</div><div class="stat-label">Chờ trưởng ĐV duyệt</div></div>
+        <div class="stat-card green"><div class="stat-icon">✅</div><div class="stat-value">${c.approved + c.hr_confirmed}</div><div class="stat-label">Đã duyệt</div></div>
+        <div class="stat-card red"><div class="stat-icon">❌</div><div class="stat-value">${c.rejected}</div><div class="stat-label">Không đồng ý</div></div>
+        <div class="stat-card blue"><div class="stat-icon">📊</div><div class="stat-value">${res.stats.total_requests}</div><div class="stat-label">Tổng đơn</div></div>`;
+      setPendingBadge(isHR(u.role) ? c.approved + c.return_pending : c.pending);
+    }
+  }
+
+  const res = await apiCall('leave-requests', { status: 'all' });
+  if (!res.success) { container.innerHTML = emptyHTML('⚠️', res.message); return; }
+  const reqs = res.requests || [];
+  if (!reqs.length) {
+    const extra = availableDays(u) > 0
+      ? `<button class="btn btn-primary" style="margin-top:14px" onclick="openCreateModal()">✏️ Tạo đơn nghỉ ngay</button>` : '';
+    container.innerHTML = emptyHTML('📭', 'Chưa có đơn nghỉ phép nào.', extra);
+    return;
+  }
+  renderRequestsTable(canApprove(u.role) ? reqs.slice(0, 8) : reqs, container, { compact: !canApprove(u.role) });
+}
+
+// ============================================================
+// ĐƠN CỦA TÔI
+// ============================================================
+async function loadMyRequests() {
+  const c = $('my-requests-container');
+  c.innerHTML = loadingHTML();
+  const res = await apiCall('leave-requests', { status: $('filter-status').value, scope: 'mine' });
+  if (!res.success) { c.innerHTML = emptyHTML('⚠️', res.message); return; }
+  const reqs = filterByDateRange(res.requests || [], $('filter-from').value, $('filter-to').value);
+  if (!reqs.length) { c.innerHTML = emptyHTML('📭', 'Không có đơn nghỉ phép nào'); return; }
+  renderRequestsTable(reqs, c, { compact: true });
+}
+
+// ============================================================
+// PHÊ DUYỆT (Trưởng ĐV)
+// ============================================================
+async function loadApprovalRequests() {
+  const c = $('approval-container');
+  c.innerHTML = loadingHTML();
+  const status = $('filter-approval-status').value;
+  const df = $('filter-approval-dept');
+  const u = state.user;
+  if (u.departments && u.departments.length > 1 && df.options.length <= 1) {
+    df.innerHTML = '<option value="all">Tất cả đơn vị</option>' + u.departments.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
+  }
+  df.style.display = u.departments && u.departments.length > 1 ? '' : 'none';
+
+  const res = await apiCall('leave-requests', { status, scope: 'team' });
+  if (!res.success) { c.innerHTML = emptyHTML('⚠️', res.message); return; }
+  let reqs = res.requests || [];
+  if (df.value && df.value !== 'all') reqs = reqs.filter(r => r.department === df.value);
+  if (status === 'pending') setPendingBadge(reqs.length);
+  if (!reqs.length) { c.innerHTML = emptyHTML('📭', status === 'pending' ? 'Không có đơn nào chờ phê duyệt' : 'Không có đơn nào'); return; }
+  renderRequestsTable(reqs, c, { approve: true });
+}
+
+// ============================================================
+// NHÂN SỰ
+// ============================================================
+async function loadHRRequests() {
+  const c = $('hr-requests-container');
+  c.innerHTML = loadingHTML();
+  const res = await apiCall('leave-requests', { status: $('filter-hr-status').value });
+  if (!res.success) { c.innerHTML = emptyHTML('⚠️', res.message); return; }
+  state.hrList = res.requests || [];
+  renderHRList();
+}
+
+function renderHRList() {
+  const c = $('hr-requests-container');
+  const q = ($('filter-hr-search').value || '').trim().toLowerCase();
+  let reqs = filterByDateRange(state.hrList, $('filter-hr-from').value, $('filter-hr-to').value);
+  if (q) reqs = reqs.filter(r => (r.employee_name || '').toLowerCase().includes(q) || (r.employee_id || '').includes(q) || (r.department || '').toLowerCase().includes(q));
+  state.hrFiltered = reqs;
+  if (!reqs.length) { c.innerHTML = emptyHTML('📭', 'Không có đơn nào'); return; }
+  renderRequestsTable(reqs, c, { hr: true });
+}
+
+async function loadHRStats() {
+  const res = await apiCall('stats');
+  if (!res.success) return;
+  const c = res.stats.status_count;
+  $('hr-stats').innerHTML = `
+    <div class="stat-card gold"><div class="stat-icon">⏳</div><div class="stat-value">${c.pending}</div><div class="stat-label">Chờ trưởng ĐV duyệt</div></div>
+    <div class="stat-card green"><div class="stat-icon">✅</div><div class="stat-value">${c.approved}</div><div class="stat-label">Trưởng ĐV đồng ý (chờ Nhân sự)</div></div>
+    <div class="stat-card blue"><div class="stat-icon">📌</div><div class="stat-value">${c.hr_confirmed}</div><div class="stat-label">Nhân sự đã xác nhận</div></div>
+    <div class="stat-card purple"><div class="stat-icon">↩️</div><div class="stat-value">${c.return_pending}</div><div class="stat-label">Chờ duyệt trả phép</div></div>
+    <div class="stat-card red"><div class="stat-icon">❌</div><div class="stat-value">${c.rejected}</div><div class="stat-label">Không đồng ý</div></div>`;
+  setPendingBadge(c.approved + c.return_pending);
+}
+
+// ============================================================
+// BẢNG ĐƠN
+// opts: { compact, approve, hr }
+// ============================================================
+function statusLabel(s, compact) { const l = STATUS_LABELS[s]; return l ? l[compact ? 0 : 1] : s; }
+function daysText(r) {
+  const half = r.half_day === 'morning' ? ' (sáng)' : r.half_day === 'afternoon' ? ' (chiều)' : '';
+  return fmtDays(r.days) + half;
+}
+
+function renderRequestsTable(requests, container, opts = {}) {
+  requests.forEach(r => { requestCache[r.id] = r; });
+  const showPerson = !opts.compact;
+  let html = `<table><thead><tr>
+    <th>Mã đơn</th>${showPerson ? '<th>Nhân viên</th><th>Đơn vị</th>' : ''}
+    <th>Từ ngày</th><th>Đến ngày</th><th>Số ngày</th><th>Lý do</th><th>Trạng thái</th><th>Thao tác</th>
+  </tr></thead><tbody>`;
+  requests.forEach(r => {
+    const ri = r.return_info;
+    const retPending = ri && ri.status === 'return_pending';
+    const btns = [`<button class="btn btn-secondary btn-sm" onclick="openRequestModal('${r.id}','view')">👁 Xem</button>`];
+    if (opts.approve && r.status === 'pending') {
+      btns.push(`<button class="btn btn-primary btn-sm" onclick="openRequestModal('${r.id}','approve')">✅ Đồng ý</button>`,
+                `<button class="btn btn-danger btn-sm" onclick="openRequestModal('${r.id}','reject')">❌</button>`);
+    }
+    if (opts.hr && (r.status === 'approved' || r.status === 'hr_returned')) {
+      btns.push(`<button class="btn btn-primary btn-sm" onclick="openRequestModal('${r.id}','hr-confirm')">📌 Xác nhận</button>`);
+    }
+    if (opts.hr && retPending) {
+      btns.push(`<button class="btn btn-purple btn-sm" onclick="openRequestModal('${r.id}','hr-confirm-return')">↩️ Duyệt trả phép</button>`);
+    }
+    if (canReturn(r)) btns.push(`<button class="btn btn-purple btn-sm" onclick="openReturnModal('${r.id}')">↩️ Trả phép</button>`);
+    if (ri && RETURN_STATUS_LABELS[ri.status] && !(opts.hr && retPending)) {
+      btns.push(`<span class="return-badge return-badge-${ri.status}">${RETURN_STATUS_LABELS[ri.status]}</span>`);
+    }
+    html += `<tr>
+      <td data-label="Mã đơn"><span class="mono-id">${esc(r.id)}</span></td>
+      ${showPerson ? `<td data-label="Nhân viên"><strong>${esc(r.employee_name)}</strong></td><td data-label="Đơn vị" class="td-muted">${esc(r.department)}</td>` : ''}
+      <td data-label="Từ ngày">${esc(formatDate(r.from_date))}</td>
+      <td data-label="Đến ngày">${esc(formatDate(r.to_date))}</td>
+      <td data-label="Số ngày" class="td-center" style="font-weight:700;color:var(--gold)">${daysText(r)}</td>
+      <td data-label="Lý do"><div class="ellipsis" title="${esc(r.reason)}">${esc(r.reason)}</div></td>
+      <td data-label="Trạng thái"><span class="status status-${esc(r.status)}">${esc(statusLabel(r.status, opts.compact))}</span></td>
+      <td data-label="Thao tác"><div class="actions">${btns.join('')}</div></td>
+    </tr>`;
+  });
+  container.innerHTML = html + '</tbody></table>';
+}
+
+// ============================================================
+// TẠO ĐƠN NGHỈ
+// ============================================================
+function openCreateModal() {
+  const u = state.user;
+  const avail = availableDays(u);
+  if (avail <= 0) {
+    const pending = u.pending_leave_days || 0;
+    $('no-leave-body').innerHTML = `
+      <div style="font-size:3rem;margin-bottom:12px">🚫</div>
+      <div style="font-size:1.05rem;font-weight:700;color:var(--red);margin-bottom:10px">Bạn đã hết ngày phép năm học ${esc(u.leave_year)}</div>
+      <div style="font-size:0.85rem;color:var(--slate);line-height:1.7;margin-bottom:16px">
+        Tổng phép: <strong style="color:var(--white)">${u.annual_leave_days} ngày</strong> ·
+        Đã dùng: <strong style="color:var(--white)">${fmtDays(u.used_leave_days)} ngày</strong>
+        ${pending > 0 ? ` · Đang chờ duyệt: <strong style="color:var(--gold)">${fmtDays(pending)} ngày</strong>` : ''}<br>
+        Năm học mới bắt đầu từ ngày 01/07.
+      </div>
+      <div style="background:rgba(208,57,43,0.1);border:1px solid rgba(208,57,43,0.3);border-radius:var(--radius-sm);padding:12px 16px;font-size:0.82rem;color:var(--slate)">
+        💡 Nếu có thắc mắc về số ngày phép, vui lòng liên hệ <strong style="color:var(--white)">Phòng Nhân sự</strong>.
+      </div>`;
+    openModal('modal-no-leave');
+    return;
+  }
+  ['req-from', 'req-to', 'req-days', 'req-reason', 'req-attachment'].forEach(id => $(id).value = '');
+  $('req-year-hint').textContent = '';
+  hideError('create-error');
+  $('lecturer-holiday-warn').style.display = 'none';
+  $('submit-btn').disabled = false;
+  setRadio('half_day', 'none');
+  const t = todayISO();
+  $('req-from').min = t; $('req-to').min = t;
+  onHalfDayChange();
+  openModal('modal-create');
+}
+
+function onHalfDayChange() {
+  const val = getRadio('half_day') || 'none';
+  const toEl = $('req-to'), hint = $('half-day-hint');
+  const half = val !== 'none';
+  toEl.readOnly = half; toEl.style.opacity = half ? '0.6' : '1';
+  if (half && $('req-from').value) toEl.value = $('req-from').value;
+  hint.textContent = val === 'morning' ? '🌤️ Nghỉ buổi sáng = 0.5 ngày phép'
+                   : val === 'afternoon' ? '🌇 Nghỉ buổi chiều = 0.5 ngày phép'
+                   : 'Chọn "Buổi sáng" hoặc "Buổi chiều" nếu chỉ nghỉ nửa ngày (= 0.5 ngày phép)';
+  hint.style.color = half ? 'var(--accent)' : '';
+  calcDays();
+}
+
+function calcDays() {
+  const halfDay = getRadio('half_day') || 'none';
+  const fromEl = $('req-from'), toEl = $('req-to'), out = $('req-days'), btn = $('submit-btn'), yh = $('req-year-hint');
+  if (halfDay !== 'none' && fromEl.value) toEl.value = fromEl.value;
+  const from = fromEl.value, to = toEl.value;
+  const set = (text, color, ok) => { out.value = text; out.style.color = color; btn.disabled = !ok; };
+
+  $('lecturer-holiday-warn').style.display = 'none';
+  yh.textContent = '';
+  if (!from || !to) { out.value = ''; btn.disabled = false; return; }
+
+  const f = new Date(from + 'T00:00:00'), t = new Date(to + 'T00:00:00');
+  if (f > t) return set('Ngày bắt đầu sau ngày kết thúc', 'var(--red)', false);
+
+  const ly = leaveYearOf(f);
+  if (leaveYearOf(t) !== ly) return set(`Đơn không được vượt qua ngày 30/06/${ly + 1} — vui lòng tách thành 2 đơn`, 'var(--red)', false);
+  yh.textContent = `Thuộc năm học ${leaveYearLabel(ly)} (01/07/${ly} – 30/06/${ly + 1})`;
+
+  if (isLecturer(state.user.role)) {
+    const hit = state.holidays.find(h => {
+      const hF = parseDate(h.from_date), hT = parseDate(h.to_date);
+      return hF && hT && f <= hT && t >= hF;
+    });
+    if (hit) {
+      $('lecturer-holiday-warn').style.display = 'block';
+      $('lecturer-holiday-warn-text').textContent = `Khoảng thời gian này nằm trong kỳ ${hit.type === 'summer' ? 'nghỉ hè' : 'nghỉ Tết'} (${hit.from_date} → ${hit.to_date}). Giảng viên không cần tạo đơn xin nghỉ phép trong kỳ nghỉ chính thức này.`;
+      return set('Không thể tạo đơn — đây là kỳ nghỉ chính thức', 'var(--lilac)', false);
+    }
+  }
+
+  let days;
+  if (halfDay !== 'none') {
+    if (f.getDay() === 0 || f.getDay() === 6) return set('Không thể nghỉ nửa ngày vào cuối tuần', 'var(--red)', false);
+    days = 0.5;
+  } else {
+    days = calcWorkingDays(f, t);
+  }
+  if (days <= 0) return set('Không có ngày làm việc (cuối tuần không tính)', 'var(--red)', false);
+
+  const halfLabel = halfDay === 'morning' ? ' (buổi sáng)' : halfDay === 'afternoon' ? ' (buổi chiều)' : '';
+  const u = state.user;
+  if (ly !== u.leave_year_start) return set(`${fmtDays(days)} ngày${halfLabel} · hệ thống sẽ kiểm tra phép năm học ${leaveYearLabel(ly)} khi gửi`, 'var(--accent)', true);
+
+  const avail = availableDays(u);
+  if (days > avail) return set(`${fmtDays(days)} ngày — vượt quá phép còn lại (${fmtDays(avail)} ngày)`, 'var(--red)', false);
+  const after = avail - days;
+  set(`${fmtDays(days)} ngày${halfLabel} · Còn lại: ${fmtDays(after)} ngày sau khi nghỉ`, after === 0 ? 'var(--gold)' : 'var(--accent)', true);
+}
+
+async function submitLeaveRequest() {
+  const halfDay = getRadio('half_day') || 'none';
+  const from = $('req-from').value;
+  const to = halfDay !== 'none' ? from : $('req-to').value;
+  const reason = $('req-reason').value.trim();
+  const attachment = $('req-attachment').value.trim();
+  const btn = $('submit-btn');
+  hideError('create-error');
+  if (!from || !to) return showError('create-error', 'Vui lòng chọn ngày bắt đầu và kết thúc');
+  if (!reason) return showError('create-error', 'Vui lòng nhập lý do');
+
+  btn.disabled = true; btn.textContent = '⏳ Đang gửi...';
+  const res = await apiCall('leave-request', { from_date: isoToVN(from), to_date: isoToVN(to), reason, attachment, half_day: halfDay });
+  btn.disabled = false; btn.textContent = '📤 Gửi đơn';
+
+  if (res.success) {
+    closeModal('modal-create');
+    showToast('✅ ' + res.message, 'success');
+    reloadCurrentPage();
+    if (state.currentPage !== 'dashboard') refreshMe();
+  } else if (res.is_holiday_block) {
+    $('lecturer-holiday-warn').style.display = 'block';
+    $('lecturer-holiday-warn-text').textContent = res.message;
+  } else {
+    showError('create-error', res.message);
+  }
+}
+
+// ============================================================
+// CHI TIẾT / XỬ LÝ ĐƠN
+// action: view | approve | reject | hr-confirm | hr-return | hr-confirm-return | hr-reject-return
+// ============================================================
+const ACTION_CFG = {
+  view:                { title: '📄 Chi tiết đơn' },
+  approve:             { title: '✅ Đồng ý đơn nghỉ phép',   btn: '✅ Đồng ý',             cls: 'btn-primary', note: 'GHI CHÚ (tùy chọn)' },
+  reject:              { title: '❌ Không đồng ý',            btn: '❌ Không đồng ý',        cls: 'btn-danger',  note: 'LÝ DO KHÔNG ĐỒNG Ý *', required: true },
+  'hr-confirm':        { title: '📌 Nhân sự xác nhận',        btn: '📌 Xác nhận ghi nhận',   cls: 'btn-primary', note: 'GHI CHÚ (tùy chọn)', alt: ['hr-return', '↩️ Trả lại'] },
+  'hr-return':         { title: '↩️ Nhân sự trả lại đơn',     btn: '↩️ Trả lại',            cls: 'btn-danger',  note: 'LÝ DO TRẢ LẠI *', required: true },
+  'hr-confirm-return': { title: '✅ Xác nhận trả phép',        btn: '✅ Xác nhận hoàn phép', cls: 'btn-primary', note: 'GHI CHÚ (tùy chọn)', alt: ['hr-reject-return', '❌ Từ chối'] },
+  'hr-reject-return':  { title: '❌ Từ chối trả phép',         btn: '❌ Từ chối trả phép',   cls: 'btn-danger',  note: 'LÝ DO TỪ CHỐI *', required: true }
+};
+
+async function openRequestModal(id, action) {
+  const req = requestCache[id];
+  if (!req) return showToast('Không tìm thấy đơn', 'error');
+  const cfg = ACTION_CFG[action] || ACTION_CFG.view;
+  $('approve-modal-title').textContent = cfg.title;
+  $('detail-panel').innerHTML = loadingHTML();
+  $('approve-modal-footer').innerHTML = '';
+  renderTimeline(req.history || []);
+  openModal('modal-approve');
+
+  let infoHtml = '';
+  if (canApprove(state.user.role) && req.employee_id) {
+    const li = await apiCall('employee-leave-info', { cccd: req.employee_id, date: req.from_date });
+    if (li.success) infoHtml = leaveInfoBoxHTML(li, req);
+  }
+
+  $('detail-panel').innerHTML = infoHtml + requestDetailHTML(req) + (cfg.note ? `
+    <div class="form-group" style="margin-top:14px">
+      <label class="form-label">${cfg.note}</label>
+      <textarea id="approve-note" class="form-input" rows="2" placeholder="${cfg.required ? 'Nhập lý do...' : 'Ghi chú thêm...'}"></textarea>
+    </div>` : '');
+
+  const footer = $('approve-modal-footer');
+  if (action === 'view') {
+    const hrCanReturn = isHR(state.user.role) && req.return_info && req.return_info.status === 'return_pending';
+    footer.innerHTML = `<button class="btn btn-secondary" onclick="closeModal('modal-approve')">Đóng</button>` +
+      (hrCanReturn ? `<button class="btn btn-purple" onclick="openRequestModal('${id}','hr-confirm-return')">↩️ Xử lý yêu cầu trả phép</button>` : '');
+  } else {
+    footer.innerHTML = `
+      ${cfg.alt ? `<button class="btn btn-danger btn-sm" style="margin-right:auto" onclick="openRequestModal('${id}','${cfg.alt[0]}')">${cfg.alt[1]}</button>` : ''}
+      <button class="btn btn-secondary" onclick="closeModal('modal-approve')">Hủy</button>
+      <button class="btn ${cfg.cls}" id="modal-action-btn" onclick="confirmAction('${id}','${action}')">${cfg.btn}</button>`;
+  }
+}
+
+function leaveInfoBoxHTML(li, req) {
+  const reqDays = parseFloat(req.days) || 0;
+  const isPending = req.status === 'pending' || req.status === 'hr_returned';
+  const remAfter = li.remaining - reqDays;
+  const pct = Math.min(Math.round((li.used_days / li.annual_days) * 100), 100);
+  const pctExtra = isPending ? Math.max(0, Math.min(Math.round(((li.used_days + reqDays) / li.annual_days) * 100), 100) - pct) : 0;
+  const isReturned = req.status === 'returned';
+  const isPartial = String(req.status).includes('partial_returned');
+
+  let note = '';
+  if (isReturned) {
+    const d = req.return_info ? req.return_info.return_days : reqDays;
+    note = `<div class="lib-note" style="color:var(--lilac);background:rgba(142,68,173,0.12)">↩️ Đơn đã được <strong>trả phép toàn bộ</strong> — ${fmtDays(d)} ngày đã hoàn lại cho nhân viên</div>`;
+  } else if (isPartial) {
+    note = `<div class="lib-note" style="color:var(--sky);background:rgba(52,152,219,0.1)">↩️ Đơn này đã trả phép một phần</div>`;
+  } else if (isPending && remAfter < 0) {
+    note = `<div class="lib-note" style="color:var(--red);font-weight:600">⚠️ Không đủ phép! Duyệt đơn này sẽ vượt ${fmtDays(Math.abs(remAfter))} ngày.</div>`;
+  }
+
+  const list = (li.requests || []).length ? `<div class="lib-list">
+    <div style="font-weight:600;margin-bottom:4px;color:var(--white)">📋 Các đơn trong năm học ${esc(li.leave_year)}:</div>
+    ${li.requests.map(q => {
+      const color = q.status === 'returned' ? 'var(--lilac)' : q.status.includes('partial') ? 'var(--sky)' : isUsedStatus(q.status) ? 'var(--gold)' : 'var(--slate)';
+      const tag = q.status === 'returned' ? ' (đã hoàn)' : q.status.includes('partial') ? ' (trả 1 phần)' : isUsedStatus(q.status) ? '' : ' (chờ duyệt)';
+      return `<div class="lib-list-row"><span>${esc(q.from_date)}${q.from_date !== q.to_date ? ' → ' + esc(q.to_date) : ''}${q.id === req.id ? ' <strong style="color:var(--accent)">← đơn này</strong>' : ''}</span>
+        <span style="color:${color}">${fmtDays(q.days)} ngày${tag}</span></div>`;
+    }).join('')}</div>` : '';
+
+  return `<div class="leave-info-box">
+    <div class="lib-title">📊 Phép năm học ${esc(li.leave_year)} — ${esc(li.name)}</div>
+    <div class="lib-grid">
+      <div class="lib-item"><div class="lib-val">${li.annual_days}</div><div class="lib-lbl">Tổng phép<br>(${li.seniority} năm TN)</div></div>
+      <div class="lib-item"><div class="lib-val" style="color:var(--gold)">${fmtDays(li.used_days)}</div><div class="lib-lbl">Đã sử dụng</div></div>
+      <div class="lib-item"><div class="lib-val" style="color:var(--slate)">${fmtDays(li.pending_days)}</div><div class="lib-lbl">Đang chờ duyệt</div></div>
+      <div class="lib-item"><div class="lib-val" style="color:${li.remaining <= 2 ? 'var(--red)' : 'var(--accent)'}">${fmtDays(li.remaining)}</div><div class="lib-lbl">Còn lại</div></div>
+    </div>
+    <div class="leave-info-bar"><div class="used ${pct + pctExtra >= 80 ? 'danger' : ''}" style="width:${pct}%"></div><div class="extra" style="width:${pctExtra}%"></div></div>
+    <div class="lib-foot">
+      <span>Đã dùng ${fmtDays(li.used_days)}/${li.annual_days} ngày (${pct}%)</span>
+      ${isPending ? `<span>Sau khi duyệt: còn <strong style="color:${remAfter < 0 ? 'var(--red)' : 'var(--accent)'}">${fmtDays(remAfter)}</strong> ngày</span>` : ''}
+    </div>
+    ${list}${note}
+  </div>`;
+}
+
+function requestDetailHTML(req) {
+  const row = (l, v) => `<div class="detail-row"><span class="detail-label">${l}</span><span class="detail-value">${v}</span></div>`;
+  let html = row('Mã đơn', `<span class="mono-id">${esc(req.id)}</span>`)
+    + row('Nhân viên', `<strong>${esc(req.employee_name || '—')}</strong>`)
+    + row('Đơn vị', esc(req.department || '—'))
+    + row('Từ ngày', esc(req.from_date || '—'))
+    + row('Đến ngày', esc(req.to_date || '—'))
+    + row('Số ngày nghỉ', `<span style="color:var(--gold);font-weight:700">${daysText(req)} ngày</span>`)
+    + row('Năm học', esc(req.leave_year || '—'))
+    + row('Lý do', esc(req.reason || '—'))
+    + row('Trạng thái', `<span class="status status-${esc(req.status)}">${esc(statusLabel(req.status))}</span>`);
+  if (req.approver_note) html += row('Ý kiến trưởng ĐV', esc(req.approver_note));
+  if (req.hr_note)       html += row('Ý kiến nhân sự', esc(req.hr_note));
+  if (req.attachment && /^https?:\/\//i.test(req.attachment)) {
+    html += row('Đính kèm', `<a href="${esc(req.attachment)}" target="_blank" rel="noopener" style="color:var(--sky)">Xem file ↗</a>`);
+  }
+  const ri = req.return_info;
+  if (ri) {
+    const session = ri.return_session === 'morning' ? ' (buổi sáng)' : ri.return_session === 'afternoon' ? ' (buổi chiều)' : '';
+    html += `<div class="return-panel">
+      <div class="return-panel-title">↩️ Yêu cầu trả phép</div>
+      <div class="grid-2">
+        <div><div class="lbl">Loại trả</div><strong>${esc(RETURN_TYPE_LABELS[ri.return_type] || ri.return_type)}</strong></div>
+        <div><div class="lbl">Số ngày trả</div><strong style="color:var(--accent)">${fmtDays(ri.return_days)} ngày${session}</strong></div>
+        <div class="full"><div class="lbl">Lý do trả</div>${esc(ri.reason || '—')}</div>
+        <div class="full"><div class="lbl">Trạng thái</div><span class="return-badge return-badge-${esc(ri.status)}">${RETURN_STATUS_LABELS[ri.status] || esc(ri.status)}</span></div>
+        ${ri.hr_note ? `<div class="full"><div class="lbl">Ghi chú Nhân sự</div>${esc(ri.hr_note)}</div>` : ''}
+      </div></div>`;
+  }
+  return html;
+}
+
+function renderTimeline(history) {
+  const c = $('timeline-container');
+  if (!history.length) { c.innerHTML = '<div style="padding:10px 0 14px;color:var(--slate);font-size:0.82rem;font-style:italic;text-align:center">Chưa có lịch sử xử lý</div>'; return; }
+  const stepCfg = {
+    pending:          ['Gửi đơn / chờ trưởng ĐV duyệt', '📤'],
+    approved:         ['Trưởng đơn vị đồng ý', '✅'],
+    rejected:         ['Trưởng đơn vị không đồng ý', '❌'],
+    hr_confirmed:     ['Nhân sự đã xác nhận', '📌'],
+    hr_returned:      ['Nhân sự trả lại', '↩️'],
+    returned:         ['Đã trả phép toàn bộ', '↩️'],
+    return_pending:   ['Yêu cầu trả phép', '⏳'],
+    return_confirmed: ['Nhân sự xác nhận hoàn phép', '✅'],
+    return_rejected:  ['Nhân sự từ chối trả phép', '❌']
+  };
+  const roleLabel = { employee: 'Nhân viên', lecturer: 'Giảng viên', manager: 'Trưởng đơn vị', manager_lecturer: 'Trưởng ĐV (GV)', approver: 'Trưởng đơn vị', hr: 'Nhân sự' };
+  const hiddenNotes = ['Tạo đơn xin nghỉ phép', 'Đã duyệt', 'Nhân sự đã ghi nhận'];
+  c.innerHTML = '<div class="timeline">' + history.map((s, i) => {
+    const [label, icon] = stepCfg[s.status] || [s.status, '•'];
+    const last = i === history.length - 1;
+    let time = '—';
+    if (s.time) { const d = new Date(s.time), p = n => String(n).padStart(2, '0'); time = `${p(d.getHours())}:${p(d.getMinutes())} · ${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`; }
+    const showNote = s.note && s.note.trim() && !hiddenNotes.includes(s.note);
+    return `<div class="tl-item">
+      <div class="tl-left"><div class="tl-dot ${esc(s.status)}"></div>${last ? '' : '<div class="tl-line"></div>'}</div>
+      <div class="tl-content">
+        <div class="tl-time">${time}</div>
+        <div class="tl-card">
+          <div class="tl-head"><div class="tl-actor">${esc(s.actor_name || s.actor_id || '—')}</div>
+            <span class="status status-${esc(s.status)}" style="font-size:0.68rem">${icon} ${esc(label)}</span></div>
+          <div class="tl-dept">${esc(roleLabel[s.role] || s.role || '')}${s.actor_dept ? ' · ' + esc(s.actor_dept) : ''}</div>
+          ${showNote ? `<div class="tl-note">💬 ${esc(s.note)}</div>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+async function confirmAction(id, action) {
+  const cfg = ACTION_CFG[action];
+  const note = $('approve-note')?.value.trim() || '';
+  if (cfg.required && !note) return showToast('Vui lòng nhập lý do', 'error');
+  const btn = $('modal-action-btn');
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ Đang xử lý...';
+  const res = await apiCall(action, { request_id: id, note });
+  btn.disabled = false; btn.textContent = label;
+  if (!res.success) return showToast('❌ ' + res.message, 'error');
+  closeModal('modal-approve');
+  showToast('✅ ' + res.message, 'success');
+  reloadCurrentPage();
+}
+
+// ============================================================
+// TRẢ PHÉP
+// ============================================================
+function canReturn(r) {
+  if (!state.user || r.employee_id !== state.user.cccd) return false;
+  if (!isUsedStatus(r.status)) return false;
+  const from = parseDate(r.from_date);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (!from || from <= today) return false;
+  return !(r.return_info && r.return_info.status === 'return_pending');
+}
+
+function openReturnModal(id) {
+  const req = requestCache[id];
+  if (!req) return showToast('Không tìm thấy đơn', 'error');
+  returningReq = req;
+  const days = parseFloat(req.days) || 0;
+  $('return-req-id').textContent = id;
+  $('return-orig-info').innerHTML = `<div class="grid-2">
+    <div><div class="lbl">Từ ngày</div>${esc(req.from_date)}</div>
+    <div><div class="lbl">Đến ngày</div>${esc(req.to_date)}</div>
+    <div><div class="lbl">Số ngày đã đăng ký</div><strong style="color:var(--gold)">${daysText(req)} ngày</strong></div>
+    <div><div class="lbl">Năm học</div>${esc(req.leave_year)}</div>
+    <div class="full"><div class="lbl">Lý do nghỉ</div>${esc(req.reason)}</div>
+  </div>`;
+  $('rtl-half').style.display = days >= 1 ? 'flex' : 'none';
+  $('rtl-partial').style.display = days > 0.5 ? 'flex' : 'none';
+  $('return-days-hint').textContent = `Tối đa ${fmtDays(days - 0.5)} ngày (phải còn lại tối thiểu 0.5 ngày)`;
+  $('return-days-input').max = days - 0.5;
+  $('return-days-input').value = '';
+  setRadio('return_type', 'full');
+  setRadio('return_session', '');
+  $('return-reason').value = '';
+  hideError('return-error');
+  onReturnTypeChange();
+  openModal('modal-return');
+}
+
+function onReturnTypeChange() {
+  const type = getRadio('return_type') || 'full';
+  $('partial-days-group').style.display = type === 'partial' ? 'block' : 'none';
+  $('half-session-group').style.display = type === 'half' ? 'block' : 'none';
+  updateReturnPreview();
+}
+
+function currentReturnDays() {
+  const type = getRadio('return_type') || 'full';
+  const orig = parseFloat(returningReq.days) || 0;
+  if (type === 'full') return orig;
+  if (type === 'half') return 0.5;
+  return parseFloat($('return-days-input').value) || 0;
+}
+
+function updateReturnPreview() {
+  if (!returningReq) return;
+  const type = getRadio('return_type') || 'full';
+  const orig = parseFloat(returningReq.days) || 0;
+  const ret = currentReturnDays();
+  const preview = $('return-preview');
+  if (ret <= 0) { preview.style.display = 'none'; return; }
+  let msg;
+  if (type === 'full') msg = `↩️ Trả toàn bộ <strong>${fmtDays(ret)} ngày</strong> → Đơn nghỉ bị hủy, phép hoàn về đầy đủ`;
+  else {
+    const s = getRadio('return_session');
+    const sLabel = type === 'half' ? ` (${s === 'morning' ? 'buổi sáng' : s === 'afternoon' ? 'buổi chiều' : 'chưa chọn buổi'})` : '';
+    msg = `↩️ Trả <strong>${fmtDays(ret)} ngày${sLabel}</strong> → Còn nghỉ <strong>${fmtDays(orig - ret)} ngày</strong>`;
+  }
+  preview.style.display = 'block';
+  preview.innerHTML = `<div style="color:var(--accent)">${msg}</div>
+    <div style="margin-top:6px;font-size:0.78rem;color:var(--slate)">Ngày phép hoàn lại: <strong style="color:var(--accent)">${fmtDays(ret)} ngày</strong> (sau khi Nhân sự xác nhận)</div>`;
+}
+
+async function submitReturn() {
+  if (!returningReq) return;
+  const type = getRadio('return_type') || 'full';
+  const session = getRadio('return_session');
+  const reason = $('return-reason').value.trim();
+  const orig = parseFloat(returningReq.days) || 0;
+  const returnDays = currentReturnDays();
+  hideError('return-error');
+  if (type === 'partial' && (returnDays <= 0 || returnDays >= orig || (returnDays * 2) % 1 !== 0)) {
+    return showError('return-error', `Số ngày trả phải từ 0.5 đến ${fmtDays(orig - 0.5)} (bội số của 0.5)`);
+  }
+  if (type === 'half' && !session) return showError('return-error', 'Vui lòng chọn buổi muốn trả');
+  if (!reason) return showError('return-error', 'Vui lòng nhập lý do trả phép');
+
+  const btn = $('submit-return-btn');
+  btn.disabled = true; btn.textContent = '⏳ Đang gửi...';
+  const res = await apiCall('create-return', { request_id: returningReq.id, return_type: type, return_days: returnDays, return_session: session, reason });
+  btn.disabled = false; btn.textContent = '↩️ Gửi yêu cầu trả phép';
+  if (!res.success) return showError('return-error', res.message);
+  closeModal('modal-return');
+  showToast('✅ ' + res.message, 'success');
+  reloadCurrentPage();
+}
+
+// ============================================================
+// KỲ NGHỈ GIẢNG VIÊN
+// ============================================================
+const holidayCache = {};
+
+async function loadHolidaySettings() {
+  const yf = $('holiday-year-filter');
+  if (!yf.options.length) yf.innerHTML = leaveYearOptions(leaveYearOf());
+  const year = parseInt(yf.value, 10);
+  const c = $('holiday-container');
+  c.innerHTML = loadingHTML();
+  const res = await apiCall('holiday-settings', { year });
+  if (!res.success) { c.innerHTML = emptyHTML('⚠️', res.message); return; }
+  const list = res.holidays || [];
+  if (!list.length) {
+    c.innerHTML = emptyHTML('📅', `Chưa có kỳ nghỉ nào cho năm học ${leaveYearLabel(year)}`,
+      `<button class="btn btn-primary" style="margin-top:14px" onclick="openHolidayModal()">➕ Thêm kỳ nghỉ</button>`);
+    return;
+  }
+  let html = `<table><thead><tr><th>Năm học</th><th>Loại kỳ nghỉ</th><th>Từ ngày</th><th>Đến ngày</th><th>Ghi chú</th><th>Người cập nhật</th><th></th></tr></thead><tbody>`;
+  list.forEach(h => {
+    holidayCache[h.id] = h;
+    html += `<tr>
+      <td data-label="Năm học"><strong>${esc(h.year_label)}</strong></td>
+      <td data-label="Loại"><span class="holiday-type-badge holiday-type-${esc(h.type)}">${HOLIDAY_LABELS[h.type] || esc(h.type)}</span></td>
+      <td data-label="Từ ngày" style="color:var(--sky)">${esc(h.from_date)}</td>
+      <td data-label="Đến ngày" style="color:var(--sky)">${esc(h.to_date)}</td>
+      <td data-label="Ghi chú" class="td-muted">${esc(h.note || '—')}</td>
+      <td data-label="Cập nhật" class="td-muted" style="font-size:0.78rem">${esc(h.created_by || '—')}</td>
+      <td><div class="actions">
+        <button class="btn btn-secondary btn-sm" onclick="openHolidayModal('${esc(h.id)}')">✏️ Sửa</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteHoliday('${esc(h.id)}')">🗑️</button>
+      </div></td>
+    </tr>`;
+  });
+  c.innerHTML = html + '</tbody></table>';
+}
+
+function openHolidayModal(id) {
+  const h = id ? holidayCache[id] : null;
+  const year = h ? h.year : parseInt($('holiday-year-filter').value, 10) || leaveYearOf();
+  $('h-year').innerHTML = leaveYearOptions(year);
+  $('h-year').disabled = !!h;
+  $('h-type').value = h ? h.type : 'summer';
+  $('h-type').disabled = !!h;
+  $('h-from').value = h ? vnToISO(h.from_date) : '';
+  $('h-to').value = h ? vnToISO(h.to_date) : '';
+  $('h-note').value = h ? h.note : '';
+  hideError('holiday-error');
+  $('holiday-modal-title').textContent = h ? '✏️ Sửa kỳ nghỉ Giảng viên' : '⛱️ Thêm kỳ nghỉ Giảng viên';
+  updateHolidayHint();
+  openModal('modal-holiday');
+}
+
+function updateHolidayHint() {
+  const y = parseInt($('h-year').value, 10);
+  $('h-from').min = $('h-to').min = `${y}-07-01`;
+  $('h-from').max = $('h-to').max = `${y + 1}-06-30`;
+  $('h-year-hint').textContent = `Năm học ${leaveYearLabel(y)}: từ 01/07/${y} đến 30/06/${y + 1}`;
+}
+
+async function submitHoliday() {
+  const year = parseInt($('h-year').value, 10);
+  const type = $('h-type').value, fromISO = $('h-from').value, toISO = $('h-to').value;
+  const note = $('h-note').value.trim();
+  hideError('holiday-error');
+  if (!year || !type || !fromISO || !toISO) return showError('holiday-error', 'Vui lòng điền đầy đủ thông tin');
+  const res = await apiCall('save-holiday', { year, type, from_date: isoToVN(fromISO), to_date: isoToVN(toISO), note });
+  if (!res.success) return showError('holiday-error', res.message);
+  closeModal('modal-holiday');
+  showToast('✅ ' + res.message, 'success');
+  $('holiday-year-filter').value = year;
+  loadHolidaySettings();
+}
+
+async function deleteHoliday(id) {
+  const h = holidayCache[id];
+  if (!h || !confirm(`Xóa kỳ ${h.type === 'summer' ? 'nghỉ hè' : 'nghỉ Tết'} năm học ${h.year_label}?`)) return;
+  const res = await apiCall('delete-holiday', { year: h.year, type: h.type });
+  if (!res.success) return showToast('❌ ' + res.message, 'error');
+  showToast('🗑️ Đã xóa kỳ nghỉ', 'info');
+  loadHolidaySettings();
+}
+
+// ============================================================
+// NHÂN VIÊN
+// ============================================================
+async function loadEmployees() {
+  const c = $('employees-container');
+  c.innerHTML = loadingHTML();
+  const res = await apiCall('employees');
+  if (!res.success) { c.innerHTML = emptyHTML('⚠️', res.message); return; }
+  state.employees = res.employees || [];
+  $('employees-sub').textContent = `Phép tính theo năm học ${res.leave_year || ''}`;
+  renderEmployees();
+}
+
+function renderEmployees() {
+  const c = $('employees-container');
+  const q = ($('filter-emp-search').value || '').trim().toLowerCase();
+  let emps = state.employees;
+  if (q) emps = emps.filter(e => (e.name || '').toLowerCase().includes(q) || e.cccd.includes(q) || (e.departments || []).join(' ').toLowerCase().includes(q));
+  if (!emps.length) { c.innerHTML = emptyHTML('👥', q ? 'Không tìm thấy nhân viên phù hợp' : 'Chưa có nhân viên nào'); return; }
+  let html = `<table><thead><tr>
+    <th>CCCD</th><th>Họ tên</th><th>Đơn vị</th><th>Vai trò</th><th>Ngày vào làm</th><th>Thâm niên</th>
+    <th>Phép/năm</th><th>Đã dùng</th><th>Chờ duyệt</th><th>Còn lại</th><th>Email</th><th></th>
+  </tr></thead><tbody>`;
+  emps.forEach(e => {
+    employeeCache[e.cccd] = e;
+    const extra = e.departments && e.departments.length > 1 ? ` <span style="font-size:0.7rem;color:var(--muted)" title="${esc(e.departments.join(', '))}">(+${e.departments.length - 1})</span>` : '';
+    html += `<tr>
+      <td data-label="CCCD"><span class="mono-id">${esc(e.cccd)}</span></td>
+      <td data-label="Họ tên"><strong>${esc(e.name)}</strong></td>
+      <td data-label="Đơn vị">${esc(e.department)}${extra}</td>
+      <td data-label="Vai trò"><span class="role-badge badge-${esc(e.role)}">${esc(ROLE_LABELS[e.role] || e.role)}</span></td>
+      <td data-label="Ngày vào làm" style="color:var(--sky)">${esc(e.start_date || '—')}</td>
+      <td data-label="Thâm niên" class="td-center" style="font-weight:600">${e.seniority_years} năm</td>
+      <td data-label="Phép/năm" class="td-center" style="font-weight:700">${e.annual_leave_days}</td>
+      <td data-label="Đã dùng" class="td-center" style="color:var(--gold)">${fmtDays(e.used_leave_days)}</td>
+      <td data-label="Chờ duyệt" class="td-center td-muted">${fmtDays(e.pending_leave_days)}</td>
+      <td data-label="Còn lại" class="td-center" style="color:var(--accent);font-weight:700">${fmtDays(e.remaining_leave_days)}</td>
+      <td data-label="Email" class="td-muted" style="font-size:0.78rem">${esc(e.email || '—')}</td>
+      <td><button class="btn btn-secondary btn-sm" onclick="openEmployeeModal('${esc(e.cccd)}')">✏️ Sửa</button></td>
+    </tr>`;
+  });
+  c.innerHTML = html + '</tbody></table>';
+}
+
+function openEmployeeModal(cccd) {
+  const e = cccd ? employeeCache[cccd] : null;
+  $('emp-mode').value = e ? 'edit' : 'create';
+  $('emp-orig-dept').value = e ? e.department : '';
+  $('emp-cccd').value = e ? e.cccd : '';
+  $('emp-cccd').readOnly = !!e;
+  $('emp-cccd').style.opacity = e ? '0.6' : '1';
+  $('emp-name').value = e ? e.name : '';
+  $('emp-dept').value = e ? e.department : '';
+  $('emp-role').value = e ? e.role : 'employee';
+  $('emp-email').value = e ? e.email : '';
+  $('emp-start').value = e ? vnToISO(e.start_date) : '';
+  $('employee-modal-title').textContent = e ? '✏️ Cập nhật thông tin nhân viên' : '➕ Thêm nhân viên mới';
+  $('employee-submit-btn').textContent = e ? '💾 Lưu thay đổi' : '➕ Thêm';
+  hideError('employee-error');
+  previewLeave($('emp-start').value);
+  openModal('modal-employee');
+}
+
+function previewLeave(v) {
+  const el = $('leave-preview');
+  if (!v) { el.textContent = 'Dùng để tính ngày phép theo thâm niên'; return; }
+  el.innerHTML = `→ Thâm niên: <strong style="color:var(--accent)">${yearsSince(v)} năm</strong> · Ngày phép/năm: <strong style="color:var(--gold)">${annualLeaveFrom(v)} ngày</strong>`;
+}
+
+async function submitEmployee() {
+  const mode = $('emp-mode').value;
+  const data = {
+    cccd: $('emp-cccd').value.trim(), name: $('emp-name').value.trim(),
+    department: $('emp-dept').value.trim(), role: $('emp-role').value,
+    email: $('emp-email').value.trim(), start_date: isoToVN($('emp-start').value)
+  };
+  hideError('employee-error');
+  if (!data.cccd || !data.name || !data.department || !data.role) return showError('employee-error', 'Vui lòng điền đầy đủ thông tin');
+  if (data.cccd.length !== 12) return showError('employee-error', 'CCCD phải đủ 12 số (kể cả số 0 ở đầu)');
+  if (!$('emp-start').value) return showError('employee-error', 'Vui lòng chọn ngày vào làm');
+  if (mode === 'edit') data.original_department = $('emp-orig-dept').value;
+
+  const btn = $('employee-submit-btn'); const label = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ Đang lưu...';
+  const res = await apiCall(mode === 'edit' ? 'update-employee' : 'create-employee', data);
+  btn.disabled = false; btn.textContent = label;
+  if (!res.success) return showError('employee-error', res.message);
+  closeModal('modal-employee');
+  showToast('✅ ' + (mode === 'edit' ? 'Đã cập nhật ' + data.name : res.message), 'success');
+  loadEmployees();
+}
+
+// ============================================================
+// XUẤT EXCEL (CSV)
+// ============================================================
+function exportExcel() {
+  const reqs = state.hrFiltered || state.hrList;
+  if (!reqs || !reqs.length) return showToast('Không có dữ liệu để xuất', 'info');
+  const cell = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const header = ['Mã đơn','Nhân viên','CCCD','Đơn vị','Năm học','Từ ngày','Đến ngày','Số ngày','Buổi','Lý do','Trạng thái','Ý kiến trưởng ĐV','Ý kiến nhân sự','Trả phép'];
+  const lines = [header.map(cell).join(',')];
+  reqs.forEach(r => {
+    const ri = r.return_info;
+    lines.push([
+      r.id, r.employee_name, '\t' + r.employee_id, r.department, r.leave_year, r.from_date, r.to_date, r.days,
+      r.half_day === 'morning' ? 'Sáng' : r.half_day === 'afternoon' ? 'Chiều' : '',
+      r.reason, statusLabel(r.status), r.approver_note, r.hr_note,
+      ri ? `${RETURN_TYPE_LABELS[ri.return_type] || ri.return_type} ${ri.return_days} ngày - ${(RETURN_STATUS_LABELS[ri.status] || ri.status).replace(/^\S+\s/, '')}` : ''
+    ].map(cell).join(','));
+  });
+  const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `BaoCaoNghiPhep_${todayISO()}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('📊 Đã xuất báo cáo CSV', 'success');
+}
+
+// ============================================================
+// GIAO DIỆN SÁNG / TỐI
+// ============================================================
+function applyTheme(isLight) {
+  document.documentElement.classList.toggle('light', isLight);
+  const btn = $('theme-toggle');
+  btn.textContent = isLight ? '🌙' : '☀️';
+  btn.title = isLight ? 'Chuyển giao diện tối' : 'Chuyển giao diện sáng';
+}
+function toggleTheme() {
+  const isLight = !document.documentElement.classList.contains('light');
+  localStorage.setItem('hrm_theme', isLight ? 'light' : 'dark');
+  applyTheme(isLight);
+}
+
+// ============================================================
+// KHỞI ĐỘNG
+// ============================================================
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+});
+
+window.addEventListener('DOMContentLoaded', () => {
+  applyTheme(localStorage.getItem('hrm_theme') === 'light');
+  if (state.token && state.user) {
+    $('page-login').classList.add('hidden');
+    $('app').style.display = 'flex';
+    initApp();
+  }
+});
+</script>
+</body>
+</html>
