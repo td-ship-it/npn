@@ -4,5 +4,5 @@
 // (Apps Script → Triển khai → Quản lý các lần triển khai → URL kết thúc bằng /exec)
 // ============================================================
 window.HRM_CONFIG = {
-  API_URL: 'https://script.google.com/macros/s/DAN_ID_TRIEN_KHAI_VAO_DAY/exec'
+  API_URL: 'https://script.google.com/macros/s/AKfycbzIwzx59F2jYnEoJzOUmYhk5ICTB2RSZtmNk9jhAGC1HheidqBbpFNqVuUO5saK50myjg/exec'
 };
