@@ -1,6 +1,7 @@
 // ============================================================
-// HRM NGHỈ PHÉP — Google Apps Script v3.0
-// Vai trò: employee, lecturer, manager, manager_lecturer, hr
+// HRM NGHỈ PHÉP — Google Apps Script v3.2
+// Vai trò: employee, lecturer, manager, manager_lecturer, hr, admin
+// admin = Quản trị hệ thống: toàn quyền (mọi chức năng của Nhân sự + thêm/sửa/xóa mọi dữ liệu)
 // Năm phép tính theo NĂM HỌC: 01/07 → 30/06 năm sau
 // CCCD và ngày tháng luôn được lưu dạng VĂN BẢN trong Google Sheet
 // ============================================================
@@ -9,7 +10,7 @@ const CONFIG = {
   SPREADSHEET_ID: '1hRx_unC2Hx5Afg1ZoE5FUoQhbXwjSTWA6I-0ekS25dc',
   // Địa chỉ giao diện trên Cloudflare Pages (dùng cho link trong email) — SỬA THÀNH ĐỊA CHỈ THẬT
   APP_URL: 'https://hrm-nghiphep.pages.dev/',
-  VERSION: 'HRM_V310',
+  VERSION: 'HRM_V320',
 
   SHEETS: {
     EMPLOYEES:        'EMPLOYEES',
@@ -42,8 +43,11 @@ const CONFIG = {
 
   ROLES: {
     EMPLOYEE: 'employee', LECTURER: 'lecturer', MANAGER: 'manager',
-    MANAGER_LECTURER: 'manager_lecturer', HR: 'hr'
+    MANAGER_LECTURER: 'manager_lecturer', HR: 'hr', ADMIN: 'admin'
   },
+  ADMIN_PW_MIN_LENGTH:  8,
+  ADMIN_PW_MAX_FAILS:   5,                  // Sai quá 5 lần → khóa tạm
+  ADMIN_PW_LOCK_SEC:    15 * 60,            // Khóa 15 phút
   STATUS: {
     PENDING:          'pending',
     APPROVED:         'approved',
@@ -72,7 +76,9 @@ const HC = { YEAR:0, TYPE:1, FROM:2, TO:3, NOTE:4, BY:5, AT:6 };
 
 function isLecturer(role) { return role === CONFIG.ROLES.LECTURER || role === CONFIG.ROLES.MANAGER_LECTURER; }
 function isManager(role)  { return role === CONFIG.ROLES.MANAGER  || role === CONFIG.ROLES.MANAGER_LECTURER; }
-function isHR(role)       { return role === CONFIG.ROLES.HR; }
+function isAdmin(role)    { return role === CONFIG.ROLES.ADMIN; }
+/** Quyền Nhân sự — Quản trị hệ thống cũng có toàn bộ quyền này */
+function isHR(role)       { return role === CONFIG.ROLES.HR || isAdmin(role); }
 function canApprove(role) { return isManager(role) || isHR(role); }
 
 /** Bỏ hậu tố _partial_returned (kể cả khi bị lặp) để lấy trạng thái gốc */
@@ -330,7 +336,7 @@ function sanitizeEmp(e) {
     pending_leave_days: e.pending_leave_days, remaining_leave_days: e.remaining_leave_days,
     leave_year_start: e.leave_year_start, leave_year: e.leave_year,
     leave_year_from: e.leave_year_from, leave_year_to: e.leave_year_to,
-    is_lecturer: isLecturer(e.role), is_manager: isManager(e.role), is_hr: isHR(e.role)
+    is_lecturer: isLecturer(e.role), is_manager: isManager(e.role), is_hr: isHR(e.role), is_admin: isAdmin(e.role)
   };
 }
 
@@ -387,6 +393,7 @@ function route(action, data, token) {
     switch (action) {
       case 'login':               return login(data.cccd);
       case 'login-with-dept':     return loginWithDept(data.cccd, data.department);
+      case 'login-admin':         return loginAdmin(data.cccd, data.password, data.new_password);
       case 'me':                  return getMe(token);
       case 'logout':              return doLogout(token);
 
@@ -412,9 +419,20 @@ function route(action, data, token) {
       case 'delete-holiday':      return deleteHolidaySetting(token, data);
 
       case 'ping':                return ok_({ version: CONFIG.VERSION, message: 'pong', ts: new Date().toISOString() });
-      case 'setup':               return requireHR_(token, setupSheets);
+      case 'setup':               return requireAdmin_(token, setupSheets);
       case 'fix-cccd':
-      case 'fix-data':            return requireHR_(token, fixData);
+      case 'fix-data':            return requireAdmin_(token, fixData);
+
+      // ── Quản trị hệ thống (chỉ admin) ──
+      case 'admin-create-request': return requireAdmin_(token, function (me) { return adminCreateRequest(me, data); });
+      case 'admin-update-request': return requireAdmin_(token, function (me) { return adminUpdateRequest(me, data); });
+      case 'admin-delete-request': return requireAdmin_(token, function (me) { return adminDeleteRequest(me, data); });
+      case 'delete-employee':      return requireAdmin_(token, function (me) { return deleteEmployee(me, data); });
+      case 'logs':                 return requireAdmin_(token, function () { return getLogs(data); });
+      case 'system-info':          return requireAdmin_(token, getSystemInfo);
+      case 'logout-all':           return requireAdmin_(token, function (me) { return logoutAll(me, token); });
+      case 'admin-reset-password': return requireAdmin_(token, function (me) { return adminResetPassword(me, data); });
+      case 'change-password':      return requireAdmin_(token, function (me) { return changeOwnPassword(me, data); });
       default:                    return fail_('Unknown action: "' + action + '"', { version: CONFIG.VERSION });
     }
   } catch (err) {
@@ -423,11 +441,11 @@ function route(action, data, token) {
   }
 }
 
-function requireHR_(token, fn) {
+function requireAdmin_(token, fn) {
   var emp = verifyToken(token);
   if (!emp) return authFail_();
-  if (!isHR(emp.role)) return fail_('Chỉ Nhân sự mới có quyền');
-  return fn();
+  if (!isAdmin(emp.role)) return fail_('Chỉ Quản trị hệ thống mới có quyền');
+  return fn(emp);
 }
 
 // ============================================================
@@ -440,6 +458,12 @@ function login(cccd) {
   var emp = findEmployeeByCCCD(norm);
   if (!emp) return fail_('CCCD không tồn tại. Liên hệ phòng Nhân sự.');
 
+  // Quản trị hệ thống: bắt buộc thêm mật khẩu
+  if (isAdmin(emp.role)) {
+    return ok_({ needPassword: true, hasPassword: !!getAdminPw_(emp.cccd), name: emp.name, cccd: emp.cccd,
+                 min_length: CONFIG.ADMIN_PW_MIN_LENGTH });
+  }
+
   if (isManager(emp.role) && emp.departments.length > 1) {
     return ok_({ needSelectDept: true, departments: emp.departments, name: emp.name, cccd: emp.cccd });
   }
@@ -450,9 +474,79 @@ function loginWithDept(cccd, department) {
   if (!cccd || !department) return fail_('Thiếu thông tin');
   var emp = findEmployeeByCCCD(cccd);
   if (!emp) return fail_('CCCD không tồn tại');
+  if (isAdmin(emp.role)) return fail_('Tài khoản Quản trị phải đăng nhập bằng mật khẩu');
   if (emp.departments.indexOf(department) === -1) return fail_('Đơn vị không hợp lệ');
   emp.department = department;
   return issueToken_(emp, department);
+}
+
+// ============================================================
+// MẬT KHẨU QUẢN TRỊ (lưu dạng băm SHA-256 + salt trong Script Properties)
+// Quên mật khẩu: admin khác đặt lại trong trang Hệ thống, hoặc xóa thuộc tính
+// ADMINPW_<cccd> trong Apps Script → Cài đặt dự án → Thuộc tính tập lệnh.
+// ============================================================
+
+function hashPw_(salt, pw) {
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt + '|' + pw, Utilities.Charset.UTF_8);
+  return bytes.map(function (b) { return ('0' + (b & 0xff).toString(16)).slice(-2); }).join('');
+}
+function getAdminPw_(cccd) { return parseJSON_(PropertiesService.getScriptProperties().getProperty('ADMINPW_' + cccd), null); }
+function setAdminPw_(cccd, pw) {
+  var salt = Utilities.getUuid();
+  PropertiesService.getScriptProperties().setProperty('ADMINPW_' + cccd, JSON.stringify({ salt: salt, hash: hashPw_(salt, pw), at: new Date().toISOString() }));
+}
+function validatePw_(pw) {
+  pw = String(pw || '');
+  if (pw.length < CONFIG.ADMIN_PW_MIN_LENGTH) return 'Mật khẩu phải có ít nhất ' + CONFIG.ADMIN_PW_MIN_LENGTH + ' ký tự';
+  if (!/[A-Za-z]/.test(pw) || !/\d/.test(pw)) return 'Mật khẩu phải có cả chữ và số';
+  return '';
+}
+
+function loginAdmin(cccd, password, newPassword) {
+  var emp = findEmployeeByCCCD(cccd);
+  if (!emp || !isAdmin(emp.role)) return fail_('Tài khoản không phải Quản trị hệ thống');
+
+  var cache = CacheService.getScriptCache();
+  var failKey = 'ADMINFAIL_' + emp.cccd;
+  var fails = parseInt(cache.get(failKey) || '0', 10);
+  if (fails >= CONFIG.ADMIN_PW_MAX_FAILS) return fail_('Sai mật khẩu quá nhiều lần. Vui lòng thử lại sau 15 phút.');
+
+  var stored = getAdminPw_(emp.cccd);
+  if (!stored) {
+    // Lần đầu: tạo mật khẩu
+    var err = validatePw_(newPassword);
+    if (err) return fail_(err);
+    setAdminPw_(emp.cccd, newPassword);
+    logActivity('ADMIN_SET_PASSWORD', emp.cccd, 'Tạo mật khẩu lần đầu');
+  } else if (hashPw_(stored.salt, String(password || '')) !== stored.hash) {
+    cache.put(failKey, String(fails + 1), CONFIG.ADMIN_PW_LOCK_SEC);
+    logActivity('ADMIN_LOGIN_FAIL', emp.cccd, 'Sai mật khẩu lần ' + (fails + 1));
+    var left = CONFIG.ADMIN_PW_MAX_FAILS - fails - 1;
+    return fail_(left > 0 ? 'Mật khẩu không đúng. Còn ' + left + ' lần thử.' : 'Sai mật khẩu quá nhiều lần. Vui lòng thử lại sau 15 phút.');
+  }
+  cache.remove(failKey);
+  return issueToken_(emp, emp.department);
+}
+
+function changeOwnPassword(me, data) {
+  var stored = getAdminPw_(me.cccd);
+  if (stored && hashPw_(stored.salt, String(data.old_password || '')) !== stored.hash) return fail_('Mật khẩu hiện tại không đúng');
+  var err = validatePw_(data.new_password);
+  if (err) return fail_(err);
+  setAdminPw_(me.cccd, data.new_password);
+  logActivity('ADMIN_CHANGE_PASSWORD', me.cccd, '');
+  return ok_({ message: 'Đã đổi mật khẩu' });
+}
+
+/** Xóa mật khẩu của một admin khác → lần đăng nhập sau họ sẽ tạo mật khẩu mới */
+function adminResetPassword(me, data) {
+  var target = findEmployeeByCCCD(data.cccd);
+  if (!target || !isAdmin(target.role)) return fail_('Không tìm thấy tài khoản Quản trị');
+  if (target.cccd === me.cccd) return fail_('Dùng chức năng "Đổi mật khẩu" cho tài khoản của bạn');
+  PropertiesService.getScriptProperties().deleteProperty('ADMINPW_' + target.cccd);
+  CacheService.getScriptCache().remove('ADMINFAIL_' + target.cccd);
+  logActivity('ADMIN_RESET_PASSWORD', me.cccd, target.cccd);
+  return ok_({ message: 'Đã đặt lại mật khẩu cho ' + target.name + '. Người này sẽ tạo mật khẩu mới ở lần đăng nhập tới.' });
 }
 
 function issueToken_(emp, department) {
@@ -538,6 +632,15 @@ function findRequestRow_(requestId) {
   return null;
 }
 
+/** Mã đơn duy nhất: LR + thời điểm (ms). Gọi bên trong khóa ghi. */
+function newRequestId_() {
+  var data = rows_(CONFIG.SHEETS.LEAVE_REQUESTS), used = {};
+  for (var i = 1; i < data.length; i++) used[String(data[i][LR.ID])] = 1;
+  var n = Date.now();
+  while (used['LR' + n]) n++;
+  return 'LR' + n;
+}
+
 function getRequestById(requestId) {
   var f = findRequestRow_(requestId);
   return f ? mapRequest_(f.data) : null;
@@ -552,11 +655,12 @@ function historyEntry_(emp, status, note, roleOverride) {
 }
 
 /** Trùng lịch với đơn còn hiệu lực. Cho phép sáng + chiều cùng một ngày. */
-function hasConflict_(cccd, from, to, halfDay) {
+function hasConflict_(cccd, from, to, halfDay, excludeId) {
   var data = rows_(CONFIG.SHEETS.LEAVE_REQUESTS);
   var norm = normalizeCCCD(cccd);
   for (var i = 1; i < data.length; i++) {
     if (!data[i][LR.ID] || normalizeCCCD(data[i][LR.EMP_ID]) !== norm) continue;
+    if (excludeId && String(data[i][LR.ID]) === String(excludeId)) continue;
     if (isClosedStatus(String(data[i][LR.STATUS]))) continue;
     var eF = toDate(data[i][LR.FROM]), eT = toDate(data[i][LR.TO]);
     if (!eF || !eT || from > eT || to < eF) continue;
@@ -621,7 +725,7 @@ function createLeaveRequest(token, data) {
     }
     if (hasConflict_(emp.cccd, from, to, halfDay)) return fail_('Trùng lịch với đơn đã có trong khoảng thời gian này');
 
-    id = 'LR' + Date.now();
+    id = newRequestId_();
     var now = new Date().toISOString();
     var halfLabel = { none: '', morning: ' (buổi sáng)', afternoon: ' (buổi chiều)' }[halfDay];
     var history = [historyEntry_(emp, CONFIG.STATUS.PENDING, 'Tạo đơn xin nghỉ phép' + halfLabel)];
@@ -1067,7 +1171,15 @@ function getEmployees(token) {
   return ok_({ employees: list, leave_year: leaveYearRange(ly).label });
 }
 
-var VALID_ROLES = ['employee', 'lecturer', 'manager', 'manager_lecturer', 'hr'];
+var VALID_ROLES = ['employee', 'lecturer', 'manager', 'manager_lecturer', 'hr', 'admin'];
+
+/** Nhân sự không được tạo/sửa tài khoản Quản trị; chỉ Quản trị mới làm được */
+function guardAdminRole_(actor, newRole, target) {
+  if (isAdmin(actor.role)) return '';
+  if (newRole === CONFIG.ROLES.ADMIN) return 'Chỉ Quản trị hệ thống mới được gán vai trò Quản trị';
+  if (target && isAdmin(target.role)) return 'Chỉ Quản trị hệ thống mới được sửa tài khoản Quản trị';
+  return '';
+}
 
 function createEmployee(token, data) {
   var emp = verifyToken(token);
@@ -1085,15 +1197,20 @@ function createEmployee(token, data) {
 
   var cccd = normalizeCCCD(rawCCCD);
   var existing = loadEmployeeMap_().map[cccd];
+  var g = guardAdminRole_(emp, data.role, existing);
+  if (g) return fail_(g);
   if (existing && existing.departments.indexOf(dept) !== -1) return fail_('CCCD đã tồn tại trong đơn vị này');
 
   appendRow_(CONFIG.SHEETS.EMPLOYEES, [cccd, name, dept, data.role, String(data.email || '').trim(), fmtDMY(start)]);
   var leaveDays = calcAnnualLeaveDays(fmtDMY(start));
-  logActivity('CREATE_EMP', emp.cccd, cccd + ' role=' + data.role + ' leave=' + leaveDays + 'd');
+  logActivity('CREATE_EMP', emp.cccd, cccd + ' ' + name + ' dept=' + dept + ' role=' + data.role);
   return ok_({ message: 'Thêm nhân viên thành công (' + leaveDays + ' ngày phép/năm học)' });
 }
 
-/** Cập nhật tên/vai trò/email/ngày vào làm cho mọi dòng của CCCD; đơn vị chỉ đổi ở dòng original_department */
+/**
+ * Cập nhật tên/vai trò/email/ngày vào làm cho mọi dòng của CCCD; đơn vị chỉ đổi ở dòng original_department.
+ * Quản trị có thể đổi số CCCD (new_cccd): mọi đơn nghỉ của người này được chuyển sang CCCD mới.
+ */
 function updateEmployee(token, data) {
   var emp = verifyToken(token);
   if (!emp) return authFail_();
@@ -1105,29 +1222,310 @@ function updateEmployee(token, data) {
   var start = data.start_date ? toDate(data.start_date) : null;
   if (data.start_date && !start) return fail_('Ngày vào làm không hợp lệ');
 
-  var rows = rows_(CONFIG.SHEETS.EMPLOYEES);
-  var origDept = String(data.original_department || '').trim();
-  var newDept  = String(data.department || '').trim();
-  var found = false, deptChanged = false;
-
-  for (var i = 1; i < rows.length; i++) {
-    if (normalizeCCCD(rows[i][EC.CCCD]) !== cccd) continue;
-    found = true;
-    var cells = {};
-    cells[EC.CCCD + 1] = cccd; // luôn ghi lại dạng văn bản đủ 12 số
-    if (data.name)               cells[EC.NAME + 1]  = String(data.name).trim();
-    if (data.role)               cells[EC.ROLE + 1]  = data.role;
-    if (data.email !== undefined) cells[EC.EMAIL + 1] = String(data.email || '').trim();
-    if (start)                   cells[EC.START + 1] = fmtDMY(start);
-    var rowDept = String(rows[i][EC.DEPT] || '').trim();
-    if (newDept && !deptChanged && (!origDept || rowDept === origDept)) {
-      cells[EC.DEPT + 1] = newDept; deptChanged = true;
-    }
-    setCells_(CONFIG.SHEETS.EMPLOYEES, i + 1, cells);
+  var empMap = loadEmployeeMap_().map;
+  var target = empMap[cccd];
+  if (!target) return fail_('Không tìm thấy nhân viên');
+  var g = guardAdminRole_(emp, data.role, target);
+  if (g) return fail_(g);
+  if (target.cccd === emp.cccd && isAdmin(emp.role) && data.role && !isAdmin(data.role)) {
+    return fail_('Không thể tự bỏ quyền Quản trị của chính mình. Nhờ một Quản trị khác thực hiện.');
   }
-  if (!found) return fail_('Không tìm thấy nhân viên');
-  logActivity('UPDATE_EMP', emp.cccd, cccd);
-  return ok_({ message: 'Cập nhật thành công' });
+
+  // Đổi số CCCD (chỉ Quản trị)
+  var newCCCD = '';
+  var rawNew = String(data.new_cccd || '').replace(/\D/g, '');
+  if (rawNew && normalizeCCCD(rawNew) !== cccd) {
+    if (!isAdmin(emp.role)) return fail_('Chỉ Quản trị hệ thống mới được đổi số CCCD');
+    if (rawNew.length !== 12) return fail_('CCCD mới phải đủ 12 số');
+    newCCCD = normalizeCCCD(rawNew);
+    if (empMap[newCCCD]) return fail_('CCCD mới đã tồn tại trong hệ thống');
+  }
+
+  return withLock_(function () {
+    invalidate_(CONFIG.SHEETS.EMPLOYEES);
+    var rows = rows_(CONFIG.SHEETS.EMPLOYEES);
+    var origDept = String(data.original_department || '').trim();
+    var newDept  = String(data.department || '').trim();
+    var deptChanged = false;
+
+    for (var i = 1; i < rows.length; i++) {
+      if (normalizeCCCD(rows[i][EC.CCCD]) !== cccd) continue;
+      var cells = {};
+      cells[EC.CCCD + 1] = newCCCD || cccd; // luôn ghi lại dạng văn bản đủ 12 số
+      if (data.name)                cells[EC.NAME + 1]  = String(data.name).trim();
+      if (data.role)                cells[EC.ROLE + 1]  = data.role;
+      if (data.email !== undefined) cells[EC.EMAIL + 1] = String(data.email || '').trim();
+      if (start)                    cells[EC.START + 1] = fmtDMY(start);
+      var rowDept = String(rows[i][EC.DEPT] || '').trim();
+      if (newDept && !deptChanged && (!origDept || rowDept === origDept)) {
+        cells[EC.DEPT + 1] = newDept; deptChanged = true;
+      }
+      setCells_(CONFIG.SHEETS.EMPLOYEES, i + 1, cells);
+    }
+
+    var moved = 0;
+    if (newCCCD) {
+      var lr = rows_(CONFIG.SHEETS.LEAVE_REQUESTS);
+      for (var j = 1; j < lr.length; j++) {
+        if (normalizeCCCD(lr[j][LR.EMP_ID]) !== cccd) continue;
+        var c2 = {}; c2[LR.EMP_ID + 1] = newCCCD;
+        if (data.name) c2[LR.EMP_NAME + 1] = String(data.name).trim();
+        setCells_(CONFIG.SHEETS.LEAVE_REQUESTS, j + 1, c2);
+        moved++;
+      }
+      var props = PropertiesService.getScriptProperties();
+      var pw = props.getProperty('ADMINPW_' + cccd);
+      if (pw) { props.setProperty('ADMINPW_' + newCCCD, pw); props.deleteProperty('ADMINPW_' + cccd); }
+    }
+    logActivity('UPDATE_EMP', emp.cccd, cccd + (newCCCD ? ' → ' + newCCCD + ' (chuyển ' + moved + ' đơn)' : '') +
+                (data.role ? ' role=' + data.role : ''));
+    return ok_({ message: newCCCD ? 'Đã cập nhật và đổi CCCD (chuyển ' + moved + ' đơn nghỉ sang CCCD mới)' : 'Cập nhật thành công' });
+  });
+}
+
+/** Xóa nhân viên (chỉ Quản trị). department = tên đơn vị hoặc 'all'. Đơn nghỉ cũ vẫn được giữ lại. */
+function deleteEmployee(me, data) {
+  var cccd = normalizeCCCD(data.cccd);
+  if (!cccd) return fail_('Thiếu CCCD');
+  if (cccd === me.cccd) return fail_('Không thể tự xóa tài khoản của chính mình');
+  var dept = String(data.department || 'all').trim();
+
+  return withLock_(function () {
+    invalidate_(CONFIG.SHEETS.EMPLOYEES);
+    var sh = sheet_(CONFIG.SHEETS.EMPLOYEES);
+    var rows = rows_(CONFIG.SHEETS.EMPLOYEES);
+    var removed = [], total = 0;
+    for (var i = 1; i < rows.length; i++) if (normalizeCCCD(rows[i][EC.CCCD]) === cccd) total++;
+    if (!total) return fail_('Không tìm thấy nhân viên');
+
+    for (var k = rows.length - 1; k >= 1; k--) {
+      if (normalizeCCCD(rows[k][EC.CCCD]) !== cccd) continue;
+      if (dept !== 'all' && String(rows[k][EC.DEPT] || '').trim() !== dept) continue;
+      removed.push(rows[k].map(String));
+      sh.deleteRow(k + 1);
+    }
+    invalidate_(CONFIG.SHEETS.EMPLOYEES);
+    if (!removed.length) return fail_('Nhân viên không thuộc đơn vị "' + dept + '"');
+    if (removed.length === total) PropertiesService.getScriptProperties().deleteProperty('ADMINPW_' + cccd);
+    // Lưu bản sao dòng đã xóa vào nhật ký để có thể khôi phục thủ công
+    logActivity('DELETE_EMP', me.cccd, cccd + ' dept=' + dept + ' data=' + JSON.stringify(removed));
+    var name = removed[0][EC.NAME];
+    return ok_({ message: removed.length === total ? 'Đã xóa nhân viên ' + name : 'Đã xóa ' + name + ' khỏi đơn vị ' + dept });
+  });
+}
+
+// ============================================================
+// QUẢN TRỊ ĐƠN NGHỈ (chỉ Quản trị): tạo hộ, sửa mọi trường, xóa
+// ============================================================
+
+var ALL_REQUEST_STATUSES = ['pending', 'approved', 'rejected', 'hr_confirmed', 'hr_returned', 'returned',
+                            'approved_partial_returned', 'hr_confirmed_partial_returned'];
+
+/** Kiểm tra & tính số ngày cho dữ liệu đơn do Quản trị nhập. Trả về {error} hoặc {from,to,halfDay,days} */
+function adminNormalizeDates_(data, fallback) {
+  fallback = fallback || {};
+  var from = toDate(data.from_date || fallback.from_date);
+  var to   = toDate(data.to_date   || fallback.to_date);
+  if (!from || !to) return { error: 'Ngày không hợp lệ. Dùng định dạng dd/mm/yyyy.' };
+  if (from > to)    return { error: 'Ngày bắt đầu sau ngày kết thúc' };
+  if (leaveYearStartOf(to) !== leaveYearStartOf(from)) {
+    return { error: 'Đơn không được vượt qua ngày 30/06 (hết năm học). Vui lòng tách thành 2 đơn.' };
+  }
+  var halfDay = data.half_day !== undefined ? data.half_day : (fallback.half_day || 'none');
+  if (['none', 'morning', 'afternoon'].indexOf(halfDay) === -1) halfDay = 'none';
+  if (halfDay !== 'none' && from.getTime() !== to.getTime()) return { error: 'Nghỉ nửa ngày chỉ áp dụng cho 1 ngày' };
+
+  var days;
+  if (data.days !== undefined && data.days !== '' && data.days !== null) {
+    days = parseFloat(data.days);
+    if (!(days >= 0) || (days * 2) % 1 !== 0) return { error: 'Số ngày phải là số nguyên hoặc X.5' };
+  } else {
+    days = halfDay !== 'none' ? 0.5 : calcWorkDays(from, to);
+  }
+  return { from: from, to: to, halfDay: halfDay, days: days };
+}
+
+function adminCreateRequest(me, data) {
+  var target = findEmployeeByCCCD(data.employee_id);
+  if (!target) return fail_('Không tìm thấy nhân viên');
+  var dept = String(data.department || target.department).trim();
+  if (target.departments.indexOf(dept) === -1) return fail_('Nhân viên không thuộc đơn vị ' + dept);
+  var reason = String(data.reason || '').trim();
+  if (!reason) return fail_('Vui lòng nhập lý do');
+  var status = data.status || CONFIG.STATUS.PENDING;
+  if (ALL_REQUEST_STATUSES.indexOf(status) === -1) return fail_('Trạng thái không hợp lệ');
+  var d = adminNormalizeDates_(data);
+  if (d.error) return fail_(d.error);
+
+  var id;
+  var res = withLock_(function () {
+    invalidate_(CONFIG.SHEETS.LEAVE_REQUESTS);
+    if (!data.force && hasConflict_(target.cccd, d.from, d.to, d.halfDay)) {
+      return fail_('Trùng lịch với đơn khác của nhân viên này', { conflict: true });
+    }
+    id = newRequestId_();
+    var now = new Date().toISOString();
+    var history = [historyEntry_(me, status, 'Quản trị viên tạo đơn hộ cho ' + target.name + (data.admin_note ? ': ' + data.admin_note : ''), 'admin')];
+    var approved = isUsedStatus(status) || status === CONFIG.STATUS.REJECTED;
+    var hrDone = baseStatus(status) === CONFIG.STATUS.HR_CONFIRMED || status === CONFIG.STATUS.HR_RETURNED;
+    appendRow_(CONFIG.SHEETS.LEAVE_REQUESTS, [
+      id, target.cccd, target.name, dept, fmtDMY(d.from), fmtDMY(d.to), d.days, reason, status,
+      approved ? me.cccd : '', String(data.approver_note || ''), hrDone ? me.cccd : '', String(data.hr_note || ''),
+      now, now, String(data.attachment || '').trim(), JSON.stringify(history), d.halfDay, ''
+    ]);
+    return ok_();
+  });
+  if (!res.success) return res;
+  logActivity('ADMIN_CREATE_REQ', me.cccd, id + ' for=' + target.cccd + ' ' + fmtDMY(d.from) + '→' + fmtDMY(d.to) + ' ' + d.days + 'd status=' + status);
+  return ok_({ message: 'Đã tạo đơn ' + id + ' cho ' + target.name + ' (' + d.days + ' ngày)', request_id: id });
+}
+
+function adminUpdateRequest(me, data) {
+  if (!data.request_id) return fail_('Thiếu mã đơn');
+  if (data.status && ALL_REQUEST_STATUSES.indexOf(data.status) === -1) return fail_('Trạng thái không hợp lệ');
+
+  return withLock_(function () {
+    invalidate_(CONFIG.SHEETS.LEAVE_REQUESTS);
+    var f = findRequestRow_(data.request_id);
+    if (!f) return fail_('Không tìm thấy đơn: ' + data.request_id);
+    var old = mapRequest_(f.data);
+
+    var d = adminNormalizeDates_(data, old);
+    if (d.error) return fail_(d.error);
+    var target = findEmployeeByCCCD(old.employee_id);
+    var dept = String(data.department || old.department).trim();
+    if (target && dept !== old.department && target.departments.indexOf(dept) === -1) {
+      return fail_('Nhân viên không thuộc đơn vị ' + dept);
+    }
+    if (!data.force && hasConflict_(old.employee_id, d.from, d.to, d.halfDay, old.id)) {
+      return fail_('Trùng lịch với đơn khác của nhân viên này', { conflict: true });
+    }
+
+    var next = {
+      department: dept, from_date: fmtDMY(d.from), to_date: fmtDMY(d.to), days: d.days, half_day: d.halfDay,
+      reason: data.reason !== undefined ? String(data.reason).trim() : old.reason,
+      status: data.status || old.status,
+      approver_note: data.approver_note !== undefined ? String(data.approver_note) : old.approver_note,
+      hr_note: data.hr_note !== undefined ? String(data.hr_note) : old.hr_note,
+      attachment: data.attachment !== undefined ? String(data.attachment).trim() : old.attachment
+    };
+    if (!next.reason) return fail_('Lý do không được để trống');
+
+    var labels = { department: 'Đơn vị', from_date: 'Từ ngày', to_date: 'Đến ngày', days: 'Số ngày', half_day: 'Buổi',
+                   reason: 'Lý do', status: 'Trạng thái', approver_note: 'Ý kiến trưởng ĐV', hr_note: 'Ý kiến NS', attachment: 'Đính kèm' };
+    var changes = [];
+    Object.keys(labels).forEach(function (k) {
+      if (String(next[k]) !== String(old[k])) changes.push(labels[k] + ': ' + (old[k] === '' ? '∅' : old[k]) + ' → ' + (next[k] === '' ? '∅' : next[k]));
+    });
+    var clearReturn = !!data.clear_return && !!old.return_info;
+    if (clearReturn) changes.push('Xóa thông tin trả phép');
+    if (!changes.length) return fail_('Không có thay đổi nào');
+
+    var now = new Date().toISOString();
+    var history = old.history;
+    history.push(historyEntry_(me, next.status, 'Quản trị viên chỉnh sửa — ' + changes.join('; ') +
+                 (data.admin_note ? ' | Ghi chú: ' + data.admin_note : ''), 'admin'));
+
+    var cells = {};
+    cells[LR.DEPT + 1] = next.department;   cells[LR.FROM + 1] = next.from_date; cells[LR.TO + 1] = next.to_date;
+    cells[LR.DAYS + 1] = next.days;         cells[LR.HALF_DAY + 1] = next.half_day;
+    cells[LR.REASON + 1] = next.reason;     cells[LR.STATUS + 1] = next.status;
+    cells[LR.APPROVER_NOTE + 1] = next.approver_note; cells[LR.HR_NOTE + 1] = next.hr_note;
+    cells[LR.ATTACH + 1] = next.attachment; cells[LR.UPDATED + 1] = now;
+    cells[LR.HISTORY + 1] = JSON.stringify(history);
+    if (clearReturn) cells[LR.RETURN_INFO + 1] = '';
+    setCells_(CONFIG.SHEETS.LEAVE_REQUESTS, f.row, cells);
+
+    logActivity('ADMIN_UPDATE_REQ', me.cccd, old.id + ' ' + changes.join('; '));
+    return ok_({ message: 'Đã cập nhật đơn ' + old.id + ' (' + changes.length + ' thay đổi)' });
+  });
+}
+
+function adminDeleteRequest(me, data) {
+  if (!data.request_id) return fail_('Thiếu mã đơn');
+  return withLock_(function () {
+    invalidate_(CONFIG.SHEETS.LEAVE_REQUESTS);
+    var f = findRequestRow_(data.request_id);
+    if (!f) return fail_('Không tìm thấy đơn: ' + data.request_id);
+    sheet_(CONFIG.SHEETS.LEAVE_REQUESTS).deleteRow(f.row);
+    invalidate_(CONFIG.SHEETS.LEAVE_REQUESTS);
+    // Lưu bản sao dòng đã xóa vào nhật ký để có thể khôi phục thủ công
+    logActivity('ADMIN_DELETE_REQ', me.cccd, data.request_id + (data.reason ? ' lý do=' + data.reason : '') +
+                ' data=' + JSON.stringify(f.data.map(function (v) { return v instanceof Date ? fmtDMY(v) : String(v); })));
+    return ok_({ message: 'Đã xóa đơn ' + data.request_id });
+  });
+}
+
+// ============================================================
+// NHẬT KÝ & HỆ THỐNG (chỉ Quản trị)
+// ============================================================
+
+function getLogs(data) {
+  var rows = rows_(CONFIG.SHEETS.LOGS);
+  var names = loadEmployeeMap_().map;
+  var q = String(data.q || '').trim().toLowerCase();
+  var action = String(data.log_action || '').trim();
+  var from = data.from ? toDate(data.from) : null;
+  var to = data.to ? toDate(data.to) : null;
+  if (to) to = new Date(to.getFullYear(), to.getMonth(), to.getDate() + 1);
+  var limit = Math.min(parseInt(data.limit, 10) || 300, 2000);
+  var actions = {}, out = [];
+
+  for (var i = rows.length - 1; i >= 1; i--) {
+    var r = rows[i];
+    if (!r[0]) continue;
+    var act = String(r[1] || '');
+    actions[act] = 1;
+    if (out.length >= limit) continue;
+    if (action && act !== action) continue;
+    var ts = r[0] instanceof Date ? r[0] : new Date(String(r[0]));
+    if (from && ts < from) continue;
+    if (to && ts >= to) continue;
+    var uid = normalizeCCCD(r[2]) || String(r[2] || '');
+    var name = names[uid] ? names[uid].name : '';
+    var detail = String(r[3] || '');
+    if (q && (act + ' ' + uid + ' ' + name + ' ' + detail).toLowerCase().indexOf(q) === -1) continue;
+    out.push({ time: isNaN(ts) ? String(r[0]) : ts.toISOString(), action: act, user_id: uid, user_name: name, detail: detail });
+  }
+  return ok_({ logs: out, actions: Object.keys(actions).sort(), total: Math.max(rows.length - 1, 0) });
+}
+
+function getSystemInfo() {
+  var em = loadEmployeeMap_();
+  var byRole = {}, admins = [];
+  em.order.forEach(function (c) {
+    var e = em.map[c];
+    byRole[e.role] = (byRole[e.role] || 0) + 1;
+    if (isAdmin(e.role)) admins.push({ cccd: e.cccd, name: e.name, has_password: !!getAdminPw_(e.cccd) });
+  });
+  var lr = rows_(CONFIG.SHEETS.LEAVE_REQUESTS), reqCount = 0;
+  for (var i = 1; i < lr.length; i++) if (lr[i][LR.ID]) reqCount++;
+  var props = PropertiesService.getScriptProperties().getProperties(), now = Date.now(), sessions = 0;
+  Object.keys(props).forEach(function (k) {
+    if (k.indexOf('TOKEN_') !== 0) return;
+    var d = parseJSON_(props[k], null);
+    if (d && now <= d.expiry) sessions++;
+  });
+  var ly = leaveYearRange(leaveYearStartOf());
+  return ok_({ info: {
+    version: CONFIG.VERSION, timezone: tz_(), leave_year: ly.label,
+    spreadsheet_url: ss_().getUrl(), app_url: CONFIG.APP_URL,
+    employees: em.order.length, employees_by_role: byRole, requests: reqCount,
+    holidays: Math.max(rows_(CONFIG.SHEETS.HOLIDAY_SETTINGS).length - 1, 0),
+    logs: Math.max(rows_(CONFIG.SHEETS.LOGS).length - 1, 0),
+    active_sessions: sessions, admins: admins
+  }});
+}
+
+/** Đăng xuất mọi phiên trừ phiên hiện tại */
+function logoutAll(me, currentToken) {
+  var props = PropertiesService.getScriptProperties();
+  var all = props.getProperties(), n = 0;
+  Object.keys(all).forEach(function (k) {
+    if (k.indexOf('TOKEN_') === 0 && k !== 'TOKEN_' + currentToken) { props.deleteProperty(k); n++; }
+  });
+  logActivity('LOGOUT_ALL', me.cccd, n + ' phiên');
+  return ok_({ message: 'Đã đăng xuất ' + n + ' phiên đăng nhập khác' });
 }
 
 // ============================================================
@@ -1318,7 +1716,7 @@ function findHREmails_() {
   var data = rows_(CONFIG.SHEETS.EMPLOYEES), seen = {}, list = [];
   for (var i = 1; i < data.length; i++) {
     var email = String(data[i][EC.EMAIL] || '').trim();
-    if (isHR(String(data[i][EC.ROLE]).trim()) && email && !seen[email]) { seen[email] = 1; list.push(email); }
+    if (String(data[i][EC.ROLE]).trim() === CONFIG.ROLES.HR && email && !seen[email]) { seen[email] = 1; list.push(email); }
   }
   return list;
 }
