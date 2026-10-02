@@ -59,6 +59,18 @@
     .badge-manager          { background:rgba(243,156,18,0.2);  color:var(--gold); }
     .badge-manager_lecturer { background:rgba(22,160,133,0.2);  color:var(--teal); }
     .badge-hr               { background:rgba(46,204,113,0.2);  color:var(--accent); }
+    .badge-admin            { background:rgba(208,57,43,0.18);  color:#e8695e; }
+    .log-detail { font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--slate); max-width:460px; word-break:break-word; white-space:pre-wrap; }
+    .log-action { font-family:'JetBrains Mono',monospace; font-size:0.72rem; font-weight:600; padding:2px 8px; border-radius:6px; background:var(--card-bg); border:1px solid var(--card-border); white-space:nowrap; }
+    .log-action.danger { color:var(--red); border-color:rgba(208,57,43,0.35); }
+    .log-action.admin  { color:var(--gold); border-color:rgba(232,160,32,0.35); }
+    .tool-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; margin-bottom:24px; }
+    .tool-card { background:var(--card-bg); border:1px solid var(--card-border); border-radius:var(--radius); padding:16px 18px; display:flex; flex-direction:column; gap:8px; }
+    .tool-card h4 { font-size:0.9rem; }
+    .tool-card p { font-size:0.78rem; color:var(--slate); line-height:1.6; flex:1; }
+    .admin-warn { background:rgba(208,57,43,0.1); border:1px solid rgba(208,57,43,0.3); border-radius:var(--radius-sm); padding:10px 14px; font-size:0.8rem; color:var(--slate); line-height:1.6; margin-bottom:14px; }
+    .check-row { display:flex; align-items:center; gap:8px; font-size:0.82rem; cursor:pointer; }
+    .check-row input { accent-color:var(--accent); width:16px; height:16px; }
     .sidebar-nav { flex:1; padding:6px 10px; overflow-y:auto; }
     .nav-section-label { font-size:0.65rem; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); padding:10px 12px 5px; }
     .nav-item { display:flex; align-items:center; gap:12px; padding:9px 13px; border-radius:var(--radius-sm); cursor:pointer; transition:all var(--transition); color:var(--slate); font-size:0.875rem; font-weight:500; position:relative; margin-bottom:2px; }
@@ -461,7 +473,10 @@
       <div class="stat-grid" id="hr-stats"></div>
       <div class="section-header">
         <div><div class="section-title">Tất cả đơn nghỉ phép</div><div class="section-sub">Quản lý & ghi nhận</div></div>
-        <button class="btn btn-secondary btn-sm" onclick="exportExcel()">📊 Xuất Excel</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm admin-only" style="display:none" onclick="openAdminReqModal()">➕ Tạo đơn hộ</button>
+          <button class="btn btn-secondary btn-sm" onclick="exportExcel()">📊 Xuất Excel</button>
+        </div>
       </div>
       <div class="filter-bar">
         <select class="form-input" id="filter-hr-status" onchange="loadHRRequests()">
@@ -514,6 +529,40 @@
         </div>
       </div>
       <div class="table-wrap"><div id="employees-container"></div></div>
+    </div>
+
+    <!-- NHẬT KÝ HỆ THỐNG (admin) -->
+    <div class="page" id="page-logs">
+      <div class="filter-bar">
+        <input type="text" class="form-input" id="log-q" placeholder="🔍 Tìm theo nội dung / CCCD / tên..." oninput="debounce('logs', loadLogs, 400)" />
+        <select class="form-input" id="log-action" onchange="loadLogs()"><option value="">Tất cả thao tác</option></select>
+        <input type="date" class="form-input" id="log-from" title="Từ ngày" onchange="loadLogs()" />
+        <input type="date" class="form-input" id="log-to" title="Đến ngày" onchange="loadLogs()" />
+        <select class="form-input" id="log-limit" onchange="loadLogs()" style="max-width:150px">
+          <option value="200">200 dòng mới nhất</option><option value="500">500 dòng</option><option value="2000">2000 dòng</option>
+        </select>
+      </div>
+      <div class="section-sub" id="logs-sub" style="margin-bottom:10px"></div>
+      <div class="table-wrap"><div id="logs-container"></div></div>
+    </div>
+
+    <!-- QUẢN TRỊ HỆ THỐNG (admin) -->
+    <div class="page" id="page-system">
+      <div class="stat-grid" id="system-stats"></div>
+      <div class="section-header"><div><div class="section-title">🛠️ Công cụ quản trị</div></div></div>
+      <div class="tool-grid">
+        <div class="tool-card"><h4>🔑 Đổi mật khẩu của tôi</h4><p>Mật khẩu quản trị dùng kèm CCCD khi đăng nhập.</p>
+          <button class="btn btn-secondary btn-sm" onclick="openChangePwModal()">Đổi mật khẩu</button></div>
+        <div class="tool-card"><h4>🚪 Đăng xuất tất cả phiên</h4><p>Buộc mọi người dùng khác đăng nhập lại (phiên của bạn được giữ). Dùng khi nghi lộ thông tin đăng nhập.</p>
+          <button class="btn btn-danger btn-sm" onclick="adminTool('logout-all','Đăng xuất toàn bộ phiên đăng nhập khác?')">Đăng xuất tất cả</button></div>
+        <div class="tool-card"><h4>🧹 Chuẩn hóa dữ liệu</h4><p>Khôi phục số 0 đầu CCCD, đưa ngày tháng về dạng văn bản dd/mm/yyyy trong mọi sheet. Không xóa dữ liệu.</p>
+          <button class="btn btn-secondary btn-sm" onclick="adminTool('fix-data','Chạy chuẩn hóa dữ liệu trên toàn bộ Google Sheet?')">Chạy chuẩn hóa</button></div>
+        <div class="tool-card"><h4>📑 Kiểm tra cấu trúc Sheet</h4><p>Tạo các sheet còn thiếu và đặt lại định dạng cột văn bản.</p>
+          <button class="btn btn-secondary btn-sm" onclick="adminTool('setup','Kiểm tra và tạo các sheet còn thiếu?')">Kiểm tra</button></div>
+      </div>
+      <div class="section-header"><div><div class="section-title">🛡️ Tài khoản Quản trị</div>
+        <div class="section-sub">Thêm/bỏ quyền Quản trị trong trang Nhân viên (vai trò "Quản trị hệ thống")</div></div></div>
+      <div class="table-wrap"><div id="admins-container"></div></div>
     </div>
   </main>
 </div>
@@ -703,11 +752,12 @@
     <div class="modal-body">
       <input type="hidden" id="emp-mode" value="create" />
       <input type="hidden" id="emp-orig-dept" value="" />
+      <input type="hidden" id="emp-orig-cccd" value="" />
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">SỐ CCCD *</label>
           <input type="text" id="emp-cccd" class="form-input mono" inputmode="numeric" placeholder="12 số CCCD" maxlength="12" oninput="this.value=this.value.replace(/\D/g,'')" />
-          <div class="form-hint">Nhập đủ 12 số, kể cả số 0 ở đầu</div>
+          <div class="form-hint" id="emp-cccd-hint">Nhập đủ 12 số, kể cả số 0 ở đầu</div>
         </div>
         <div class="form-group">
           <label class="form-label">HỌ TÊN *</label>
@@ -750,6 +800,129 @@
   </div>
 </div>
 
+<!-- MODAL: MẬT KHẨU QUẢN TRỊ -->
+<div class="modal-overlay" id="modal-admin-pw">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title" id="admin-pw-title">🛡️ Đăng nhập Quản trị</div>
+      <button class="modal-close" onclick="closeModal('modal-admin-pw')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--slate);font-size:0.85rem;margin-bottom:14px">Xin chào <strong id="admin-pw-name" style="color:var(--white)"></strong>.
+        <span id="admin-pw-intro"></span></p>
+      <div class="form-group">
+        <label class="form-label" id="admin-pw-label">MẬT KHẨU</label>
+        <input type="password" id="admin-pw" class="form-input" autocomplete="current-password" onkeydown="if(event.key==='Enter')submitAdminPw()" />
+      </div>
+      <div class="form-group" id="admin-pw2-group" style="display:none">
+        <label class="form-label">NHẬP LẠI MẬT KHẨU</label>
+        <input type="password" id="admin-pw2" class="form-input" autocomplete="new-password" onkeydown="if(event.key==='Enter')submitAdminPw()" />
+        <div class="form-hint" id="admin-pw-hint"></div>
+      </div>
+      <div id="admin-pw-error" class="form-error"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-admin-pw')">Hủy</button>
+      <button class="btn btn-primary" id="admin-pw-btn" onclick="submitAdminPw()">🔐 Đăng nhập</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ĐỔI MẬT KHẨU -->
+<div class="modal-overlay" id="modal-change-pw">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header"><div class="modal-title">🔑 Đổi mật khẩu Quản trị</div>
+      <button class="modal-close" onclick="closeModal('modal-change-pw')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">MẬT KHẨU HIỆN TẠI</label><input type="password" id="cpw-old" class="form-input" autocomplete="current-password" /></div>
+      <div class="form-group"><label class="form-label">MẬT KHẨU MỚI</label><input type="password" id="cpw-new" class="form-input" autocomplete="new-password" />
+        <div class="form-hint">Ít nhất 8 ký tự, gồm cả chữ và số</div></div>
+      <div class="form-group"><label class="form-label">NHẬP LẠI MẬT KHẨU MỚI</label><input type="password" id="cpw-new2" class="form-input" autocomplete="new-password" /></div>
+      <div id="cpw-error" class="form-error"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-change-pw')">Hủy</button>
+      <button class="btn btn-primary" onclick="submitChangePw()">💾 Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: QUẢN TRỊ — TẠO / SỬA ĐƠN -->
+<div class="modal-overlay" id="modal-admin-req">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header">
+      <div class="modal-title" id="areq-title">🛡️ Sửa đơn</div>
+      <button class="modal-close" onclick="closeModal('modal-admin-req')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="admin-warn">🛡️ Quyền Quản trị: thay đổi được ghi vào lịch sử đơn và nhật ký hệ thống. Không kiểm tra quỹ phép và kỳ nghỉ giảng viên.</div>
+      <input type="hidden" id="areq-id" />
+      <div class="form-group" id="areq-emp-group">
+        <label class="form-label">NHÂN VIÊN *</label>
+        <input type="text" id="areq-emp" class="form-input" list="areq-emp-list" placeholder="Gõ tên hoặc CCCD rồi chọn..." oninput="onAdminReqEmpInput()" />
+        <datalist id="areq-emp-list"></datalist>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">ĐƠN VỊ</label><select id="areq-dept" class="form-input"></select></div>
+        <div class="form-group"><label class="form-label">TRẠNG THÁI *</label><select id="areq-status" class="form-input"></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">TỪ NGÀY *</label><input type="date" id="areq-from" class="form-input" onchange="calcAdminReqDays()" /></div>
+        <div class="form-group"><label class="form-label">ĐẾN NGÀY *</label><input type="date" id="areq-to" class="form-input" onchange="calcAdminReqDays()" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">BUỔI</label>
+          <select id="areq-half" class="form-input" onchange="calcAdminReqDays()">
+            <option value="none">📅 Cả ngày</option><option value="morning">🌤️ Buổi sáng</option><option value="afternoon">🌇 Buổi chiều</option>
+          </select></div>
+        <div class="form-group"><label class="form-label">SỐ NGÀY</label>
+          <input type="number" id="areq-days" class="form-input" step="0.5" min="0" readonly style="color:var(--accent);font-weight:700" />
+          <label class="check-row" style="margin-top:6px"><input type="checkbox" id="areq-days-manual" onchange="onDaysManual()" /> Tự nhập số ngày</label></div>
+      </div>
+      <div class="form-group"><label class="form-label">LÝ DO NGHỈ *</label><textarea id="areq-reason" class="form-input" rows="2"></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Ý KIẾN TRƯỞNG ĐV</label><input type="text" id="areq-anote" class="form-input" /></div>
+        <div class="form-group"><label class="form-label">Ý KIẾN NHÂN SỰ</label><input type="text" id="areq-hnote" class="form-input" /></div>
+      </div>
+      <div class="form-group"><label class="form-label">FILE ĐÍNH KÈM</label><input type="url" id="areq-attach" class="form-input" placeholder="URL (tùy chọn)" /></div>
+      <div class="form-group" id="areq-return-group" style="display:none">
+        <label class="check-row"><input type="checkbox" id="areq-clear-return" /> Xóa thông tin trả phép của đơn này <span class="td-muted" id="areq-return-desc"></span></label>
+      </div>
+      <div class="form-group"><label class="form-label">GHI CHÚ QUẢN TRỊ (ghi vào lịch sử)</label><input type="text" id="areq-admin-note" class="form-input" placeholder="Ví dụ: Điều chỉnh theo đề nghị của Phòng TCCB" /></div>
+      <label class="check-row" id="areq-force-row" style="display:none;color:var(--gold)"><input type="checkbox" id="areq-force" /> Vẫn lưu dù trùng lịch với đơn khác</label>
+      <div id="areq-error" class="form-error"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-admin-req')">Hủy</button>
+      <button class="btn btn-primary" id="areq-btn" onclick="submitAdminReq()">💾 Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: XÁC NHẬN XÓA -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header"><div class="modal-title" id="confirm-title">🗑️ Xác nhận xóa</div>
+      <button class="modal-close" onclick="closeModal('modal-confirm')">✕</button></div>
+    <div class="modal-body">
+      <div id="confirm-body" style="font-size:0.85rem;line-height:1.7"></div>
+      <div class="form-group" id="confirm-reason-group" style="margin-top:12px">
+        <label class="form-label">LÝ DO (ghi vào nhật ký)</label>
+        <input type="text" id="confirm-reason" class="form-input" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">GÕ "XOA" ĐỂ XÁC NHẬN</label>
+        <input type="text" id="confirm-word" class="form-input mono" autocomplete="off" oninput="$('confirm-btn').disabled = this.value.trim().toUpperCase() !== 'XOA'" />
+      </div>
+      <div id="confirm-error" class="form-error"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-confirm')">Hủy</button>
+      <button class="btn btn-danger" id="confirm-btn" disabled onclick="runConfirm()">🗑️ Xóa vĩnh viễn</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-container" id="toast-container"></div>
 
 <script>
@@ -759,6 +932,7 @@
 const LEAVE_YEAR_START_MONTH = 7; // Năm học bắt đầu 01/07
 
 const ROLE_LABELS = {
+  admin: '🛡️ Quản trị hệ thống',
   employee: '👤 Nhân viên', lecturer: '🎓 Giảng viên', manager: '👔 Trưởng đơn vị',
   manager_lecturer: '🎓 Trưởng ĐV (GV)', hr: '🏢 Phòng Nhân sự'
 };
@@ -780,7 +954,8 @@ const RETURN_TYPE_LABELS = { full: 'Toàn bộ', partial: 'Một phần', half: 
 
 const isLecturer = r => r === 'lecturer' || r === 'manager_lecturer';
 const isManager  = r => r === 'manager'  || r === 'manager_lecturer';
-const isHR       = r => r === 'hr';
+const isAdmin    = r => r === 'admin';
+const isHR       = r => r === 'hr' || isAdmin(r);   // Quản trị có toàn bộ quyền Nhân sự
 const canApprove = r => isManager(r) || isHR(r);
 const baseStatus = s => String(s || '').replace(/(_partial_returned)+$/, '');
 const isUsedStatus = s => ['approved', 'hr_confirmed'].includes(baseStatus(s));
@@ -963,6 +1138,7 @@ async function doLogin() {
   const res = await apiCall('login', { cccd });
   delete btn.dataset.busy; btn.innerHTML = '🔐 Đăng nhập'; btn.disabled = false;
   if (!res.success) return showLoginError(res.message || 'Đăng nhập thất bại');
+  if (res.needPassword) { openAdminPwModal(res); return; }
   if (res.needSelectDept) { state.pendingCCCD = cccd; showDeptSelector(res.name, res.departments); return; }
   completeLogin(res);
 }
@@ -1066,8 +1242,12 @@ function buildNav(role) {
     employee: [...base, mine], lecturer: [...base, mine],
     manager: [...base, approval, mine], manager_lecturer: [...base, approval, mine],
     hr: [...base, { icon: '📋', label: 'Tất cả đơn', page: 'hr', badge: true },
-         { icon: '⛱️', label: 'Kỳ nghỉ GV', page: 'holidays' }, { icon: '👥', label: 'Nhân viên', page: 'employees' }, mine]
+         { icon: '⛱️', label: 'Kỳ nghỉ GV', page: 'holidays' }, { icon: '👥', label: 'Nhân viên', page: 'employees' }, mine],
+    admin: [...base, { icon: '📋', label: 'Tất cả đơn', page: 'hr', badge: true },
+         { icon: '⛱️', label: 'Kỳ nghỉ GV', page: 'holidays' }, { icon: '👥', label: 'Nhân viên', page: 'employees' },
+         { icon: '📜', label: 'Nhật ký hệ thống', page: 'logs' }, { icon: '🛠️', label: 'Quản trị hệ thống', page: 'system' }, mine]
   }[role] || [...base, mine];
+  document.querySelectorAll('.admin-only').forEach(el => el.style.display = isAdmin(role) ? '' : 'none');
 
   let html = '<div class="nav-section-label">Menu</div>';
   items.forEach(it => {
@@ -1105,7 +1285,9 @@ const PAGE_META = {
   approval:      { title: 'Phê duyệt đơn',       sub: 'Xem xét và phê duyệt đơn' },
   hr:            { title: 'Quản lý nghỉ phép',   sub: 'Toàn bộ đơn trong hệ thống' },
   holidays:      { title: 'Kỳ nghỉ Giảng viên',  sub: 'Cài đặt nghỉ hè & nghỉ Tết theo năm học' },
-  employees:     { title: 'Danh sách nhân viên', sub: 'Quản lý hồ sơ nhân sự' }
+  employees:     { title: 'Danh sách nhân viên', sub: 'Quản lý hồ sơ nhân sự' },
+  logs:          { title: 'Nhật ký hệ thống',    sub: 'Mọi thao tác được ghi lại' },
+  system:        { title: 'Quản trị hệ thống',   sub: 'Thông tin & công cụ quản trị' }
 };
 
 function navigateTo(page) {
@@ -1119,7 +1301,8 @@ function navigateTo(page) {
   $('topbar-subtitle').textContent = meta.sub || '';
   updateTopbarActions();
   ({ dashboard: loadDashboard, 'my-requests': loadMyRequests, approval: loadApprovalRequests,
-     hr: () => { loadHRRequests(); loadHRStats(); }, holidays: loadHolidaySettings, employees: loadEmployees }[page] || (() => {}))();
+     hr: () => { loadHRRequests(); loadHRStats(); }, holidays: loadHolidaySettings, employees: loadEmployees,
+     logs: loadLogs, system: loadSystem }[page] || (() => {}))();
   closeSidebar();
 }
 
@@ -1305,6 +1488,10 @@ function renderRequestsTable(requests, container, opts = {}) {
     }
     if (opts.hr && retPending) {
       btns.push(`<button class="btn btn-purple btn-sm" onclick="openRequestModal('${r.id}','hr-confirm-return')">↩️ Duyệt trả phép</button>`);
+    }
+    if (opts.hr && isAdmin(state.user.role)) {
+      btns.push(`<button class="btn btn-secondary btn-sm" title="Sửa (Quản trị)" onclick="openAdminReqModal('${r.id}')">✏️</button>`,
+                `<button class="btn btn-danger btn-sm" title="Xóa (Quản trị)" onclick="confirmDeleteRequest('${r.id}')">🗑️</button>`);
     }
     if (canReturn(r)) btns.push(`<button class="btn btn-purple btn-sm" onclick="openReturnModal('${r.id}')">↩️ Trả phép</button>`);
     if (ri && RETURN_STATUS_LABELS[ri.status] && !(opts.hr && retPending)) {
@@ -1589,7 +1776,7 @@ function renderTimeline(history) {
     return_confirmed: ['Nhân sự xác nhận hoàn phép', '✅'],
     return_rejected:  ['Nhân sự từ chối trả phép', '❌']
   };
-  const roleLabel = { employee: 'Nhân viên', lecturer: 'Giảng viên', manager: 'Trưởng đơn vị', manager_lecturer: 'Trưởng ĐV (GV)', approver: 'Trưởng đơn vị', hr: 'Nhân sự' };
+  const roleLabel = { employee: 'Nhân viên', lecturer: 'Giảng viên', manager: 'Trưởng đơn vị', manager_lecturer: 'Trưởng ĐV (GV)', approver: 'Trưởng đơn vị', hr: 'Nhân sự', admin: 'Quản trị hệ thống' };
   const hiddenNotes = ['Tạo đơn xin nghỉ phép', 'Đã duyệt', 'Nhân sự đã ghi nhận'];
   c.innerHTML = '<div class="timeline">' + history.map((s, i) => {
     const [label, icon] = stepCfg[s.status] || [s.status, '•'];
@@ -1845,7 +2032,10 @@ function renderEmployees() {
       <td data-label="Chờ duyệt" class="td-center td-muted">${fmtDays(e.pending_leave_days)}</td>
       <td data-label="Còn lại" class="td-center" style="color:var(--accent);font-weight:700">${fmtDays(e.remaining_leave_days)}</td>
       <td data-label="Email" class="td-muted" style="font-size:0.78rem">${esc(e.email || '—')}</td>
-      <td><button class="btn btn-secondary btn-sm" onclick="openEmployeeModal('${esc(e.cccd)}')">✏️ Sửa</button></td>
+      <td><div class="actions">
+        ${!isAdmin(state.user.role) && isAdmin(e.role) ? '' : `<button class="btn btn-secondary btn-sm" onclick="openEmployeeModal('${esc(e.cccd)}')">✏️ Sửa</button>`}
+        ${isAdmin(state.user.role) && e.cccd !== state.user.cccd ? `<button class="btn btn-danger btn-sm" title="Xóa nhân viên" onclick="confirmDeleteEmployee('${esc(e.cccd)}')">🗑️</button>` : ''}
+      </div></td>
     </tr>`;
   });
   c.innerHTML = html + '</tbody></table>';
@@ -1855,9 +2045,17 @@ function openEmployeeModal(cccd) {
   const e = cccd ? employeeCache[cccd] : null;
   $('emp-mode').value = e ? 'edit' : 'create';
   $('emp-orig-dept').value = e ? e.department : '';
+  $('emp-orig-cccd').value = e ? e.cccd : '';
   $('emp-cccd').value = e ? e.cccd : '';
-  $('emp-cccd').readOnly = !!e;
-  $('emp-cccd').style.opacity = e ? '0.6' : '1';
+  const admin = isAdmin(state.user.role);
+  const lockCCCD = !!e && !admin;   // Chỉ Quản trị được đổi số CCCD
+  $('emp-cccd').readOnly = lockCCCD;
+  $('emp-cccd').style.opacity = lockCCCD ? '0.6' : '1';
+  $('emp-cccd-hint').textContent = e && admin ? 'Quản trị: sửa số CCCD sẽ chuyển toàn bộ đơn nghỉ sang CCCD mới' : 'Nhập đủ 12 số, kể cả số 0 ở đầu';
+  // Chỉ Quản trị mới thấy và gán được vai trò "Quản trị hệ thống" (dựng lại option vì Safari không ẩn được <option>)
+  const roleSel = $('emp-role');
+  roleSel.querySelector('option[value="admin"]')?.remove();
+  if (admin) roleSel.insertAdjacentHTML('beforeend', '<option value="admin">🛡️ Quản trị hệ thống</option>');
   $('emp-name').value = e ? e.name : '';
   $('emp-dept').value = e ? e.department : '';
   $('emp-role').value = e ? e.role : 'employee';
@@ -1887,7 +2085,14 @@ async function submitEmployee() {
   if (!data.cccd || !data.name || !data.department || !data.role) return showError('employee-error', 'Vui lòng điền đầy đủ thông tin');
   if (data.cccd.length !== 12) return showError('employee-error', 'CCCD phải đủ 12 số (kể cả số 0 ở đầu)');
   if (!$('emp-start').value) return showError('employee-error', 'Vui lòng chọn ngày vào làm');
-  if (mode === 'edit') data.original_department = $('emp-orig-dept').value;
+  if (mode === 'edit') {
+    data.original_department = $('emp-orig-dept').value;
+    const orig = $('emp-orig-cccd').value;
+    if (data.cccd !== orig) {
+      if (!confirm(`Đổi CCCD ${orig} → ${data.cccd}?\nToàn bộ đơn nghỉ của nhân viên sẽ được chuyển sang CCCD mới.`)) return;
+      data.new_cccd = data.cccd; data.cccd = orig;
+    }
+  }
 
   const btn = $('employee-submit-btn'); const label = btn.textContent;
   btn.disabled = true; btn.textContent = '⏳ Đang lưu...';
@@ -1895,7 +2100,7 @@ async function submitEmployee() {
   btn.disabled = false; btn.textContent = label;
   if (!res.success) return showError('employee-error', res.message);
   closeModal('modal-employee');
-  showToast('✅ ' + (mode === 'edit' ? 'Đã cập nhật ' + data.name : res.message), 'success');
+  showToast('✅ ' + (mode === 'edit' ? (data.new_cccd ? res.message : 'Đã cập nhật ' + data.name) : res.message), 'success');
   loadEmployees();
 }
 
@@ -1924,6 +2129,314 @@ function exportExcel() {
   a.click();
   URL.revokeObjectURL(a.href);
   showToast('📊 Đã xuất báo cáo CSV', 'success');
+}
+
+// ============================================================
+// QUẢN TRỊ HỆ THỐNG
+// ============================================================
+let adminLoginCtx = null;
+
+function openAdminPwModal(res) {
+  adminLoginCtx = res;
+  const first = !res.hasPassword;
+  $('admin-pw-name').textContent = res.name;
+  $('admin-pw-title').textContent = first ? '🛡️ Tạo mật khẩu Quản trị' : '🛡️ Đăng nhập Quản trị';
+  $('admin-pw-intro').textContent = first
+    ? 'Đây là lần đăng nhập đầu tiên với quyền Quản trị hệ thống. Vui lòng tạo mật khẩu.'
+    : 'Tài khoản Quản trị hệ thống cần nhập thêm mật khẩu.';
+  $('admin-pw-label').textContent = first ? 'MẬT KHẨU MỚI' : 'MẬT KHẨU';
+  $('admin-pw2-group').style.display = first ? 'block' : 'none';
+  $('admin-pw-hint').textContent = `Ít nhất ${res.min_length || 8} ký tự, gồm cả chữ và số`;
+  $('admin-pw').autocomplete = first ? 'new-password' : 'current-password';
+  $('admin-pw').value = ''; $('admin-pw2').value = '';
+  $('admin-pw-btn').textContent = first ? '💾 Tạo mật khẩu & đăng nhập' : '🔐 Đăng nhập';
+  hideError('admin-pw-error');
+  openModal('modal-admin-pw');
+  setTimeout(() => $('admin-pw').focus(), 100);
+}
+
+async function submitAdminPw() {
+  if (!adminLoginCtx) return;
+  const first = !adminLoginCtx.hasPassword;
+  const pw = $('admin-pw').value;
+  hideError('admin-pw-error');
+  if (!pw) return showError('admin-pw-error', 'Vui lòng nhập mật khẩu');
+  if (first && pw !== $('admin-pw2').value) return showError('admin-pw-error', 'Hai mật khẩu không khớp');
+  const btn = $('admin-pw-btn'); const label = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ Đang xác thực...';
+  const res = await apiCall('login-admin', first
+    ? { cccd: adminLoginCtx.cccd, new_password: pw }
+    : { cccd: adminLoginCtx.cccd, password: pw });
+  btn.disabled = false; btn.textContent = label;
+  if (!res.success) { $('admin-pw').value = ''; return showError('admin-pw-error', res.message); }
+  closeModal('modal-admin-pw');
+  adminLoginCtx = null;
+  completeLogin(res);
+}
+
+function openChangePwModal() {
+  ['cpw-old', 'cpw-new', 'cpw-new2'].forEach(id => $(id).value = '');
+  hideError('cpw-error');
+  openModal('modal-change-pw');
+}
+
+async function submitChangePw() {
+  const oldPw = $('cpw-old').value, pw = $('cpw-new').value;
+  hideError('cpw-error');
+  if (!oldPw || !pw) return showError('cpw-error', 'Vui lòng nhập đủ thông tin');
+  if (pw !== $('cpw-new2').value) return showError('cpw-error', 'Hai mật khẩu mới không khớp');
+  const res = await apiCall('change-password', { old_password: oldPw, new_password: pw });
+  if (!res.success) return showError('cpw-error', res.message);
+  closeModal('modal-change-pw');
+  showToast('✅ ' + res.message, 'success');
+}
+
+// ── Tạo / sửa đơn ──
+const ADMIN_STATUS_OPTIONS = ['pending', 'approved', 'rejected', 'hr_confirmed', 'hr_returned', 'returned',
+                              'approved_partial_returned', 'hr_confirmed_partial_returned'];
+
+async function ensureEmployeesLoaded() {
+  if (state.employees && state.employees.length) return true;
+  const res = await apiCall('employees');
+  if (!res.success) { showToast('❌ ' + res.message, 'error'); return false; }
+  state.employees = res.employees || [];
+  state.employees.forEach(e => { employeeCache[e.cccd] = e; });
+  return true;
+}
+
+function fillDeptSelect(emp, selected) {
+  const depts = emp ? (emp.departments && emp.departments.length ? emp.departments : [emp.department]) : (selected ? [selected] : []);
+  if (selected && !depts.includes(selected)) depts.push(selected);
+  $('areq-dept').innerHTML = depts.map(d => `<option value="${esc(d)}" ${d === selected ? 'selected' : ''}>${esc(d)}</option>`).join('');
+}
+
+async function openAdminReqModal(id) {
+  const req = id ? requestCache[id] : null;
+  if (id && !req) return showToast('Không tìm thấy đơn', 'error');
+  if (!(await ensureEmployeesLoaded()) && !req) return;
+
+  $('areq-title').textContent = req ? `🛡️ Sửa đơn ${req.id}` : '🛡️ Tạo đơn nghỉ hộ nhân viên';
+  $('areq-id').value = req ? req.id : '';
+  $('areq-emp-group').style.display = req ? 'none' : 'block';
+  $('areq-emp').value = '';
+  $('areq-emp').dataset.cccd = req ? req.employee_id : '';
+  $('areq-emp-list').innerHTML = (state.employees || []).map(e => `<option value="${esc(e.name)} — ${esc(e.cccd)}"></option>`).join('');
+  fillDeptSelect(req ? employeeCache[req.employee_id] : null, req ? req.department : '');
+  $('areq-status').innerHTML = ADMIN_STATUS_OPTIONS.map(s =>
+    `<option value="${s}" ${(req ? req.status : 'hr_confirmed') === s ? 'selected' : ''}>${esc(statusLabel(s))}</option>`).join('');
+  $('areq-from').value = req ? vnToISO(req.from_date) : '';
+  $('areq-to').value = req ? vnToISO(req.to_date) : '';
+  $('areq-half').value = req ? (req.half_day || 'none') : 'none';
+  $('areq-days').value = req ? req.days : '';
+  $('areq-days-manual').checked = false;
+  $('areq-days').readOnly = true;
+  $('areq-reason').value = req ? req.reason : '';
+  $('areq-anote').value = req ? req.approver_note : '';
+  $('areq-hnote').value = req ? req.hr_note : '';
+  $('areq-attach').value = req ? req.attachment : '';
+  $('areq-admin-note').value = '';
+  const ri = req && req.return_info;
+  $('areq-return-group').style.display = ri ? 'block' : 'none';
+  $('areq-clear-return').checked = false;
+  $('areq-return-desc').textContent = ri ? `(${RETURN_TYPE_LABELS[ri.return_type] || ri.return_type} ${fmtDays(ri.return_days)} ngày — ${(RETURN_STATUS_LABELS[ri.status] || ri.status).replace(/^\S+\s/, '')})` : '';
+  $('areq-force').checked = false;
+  $('areq-force-row').style.display = 'none';
+  hideError('areq-error');
+  if (req && parseFloat(req.days) !== autoDays()) { $('areq-days-manual').checked = true; $('areq-days').readOnly = false; }
+  openModal('modal-admin-req');
+}
+
+function onAdminReqEmpInput() {
+  const v = $('areq-emp').value;
+  const m = v.match(/(\d{12})\s*$/);
+  const emp = m ? employeeCache[m[1]] : null;
+  $('areq-emp').dataset.cccd = emp ? emp.cccd : '';
+  fillDeptSelect(emp, emp ? emp.department : '');
+}
+
+function autoDays() {
+  const f = $('areq-from').value, t = $('areq-to').value, half = $('areq-half').value;
+  if (!f || !t) return NaN;
+  const a = new Date(f + 'T00:00:00'), b = new Date(t + 'T00:00:00');
+  if (a > b) return NaN;
+  return half !== 'none' ? 0.5 : calcWorkingDays(a, b);
+}
+
+function calcAdminReqDays() {
+  if ($('areq-half').value !== 'none' && $('areq-from').value) $('areq-to').value = $('areq-from').value;
+  if ($('areq-days-manual').checked) return;
+  const d = autoDays();
+  $('areq-days').value = isNaN(d) ? '' : d;
+}
+
+function onDaysManual() {
+  const manual = $('areq-days-manual').checked;
+  $('areq-days').readOnly = !manual;
+  if (!manual) calcAdminReqDays(); else $('areq-days').focus();
+}
+
+async function submitAdminReq() {
+  const id = $('areq-id').value;
+  const from = $('areq-from').value, to = $('areq-to').value;
+  hideError('areq-error');
+  const data = {
+    department: $('areq-dept').value, status: $('areq-status').value,
+    from_date: isoToVN(from), to_date: isoToVN(to), half_day: $('areq-half').value,
+    reason: $('areq-reason').value.trim(), approver_note: $('areq-anote').value.trim(), hr_note: $('areq-hnote').value.trim(),
+    attachment: $('areq-attach').value.trim(), admin_note: $('areq-admin-note').value.trim(),
+    force: $('areq-force').checked
+  };
+  if ($('areq-days-manual').checked) data.days = $('areq-days').value;
+  if (!from || !to) return showError('areq-error', 'Vui lòng chọn ngày');
+  if (!data.reason) return showError('areq-error', 'Vui lòng nhập lý do');
+  if (id) {
+    data.request_id = id;
+    data.clear_return = $('areq-clear-return').checked;
+  } else {
+    data.employee_id = $('areq-emp').dataset.cccd;
+    if (!data.employee_id) return showError('areq-error', 'Vui lòng chọn nhân viên từ danh sách gợi ý');
+  }
+  const btn = $('areq-btn');
+  btn.disabled = true; btn.textContent = '⏳ Đang lưu...';
+  const res = await apiCall(id ? 'admin-update-request' : 'admin-create-request', data);
+  btn.disabled = false; btn.textContent = '💾 Lưu';
+  if (!res.success) {
+    if (res.conflict) $('areq-force-row').style.display = 'flex';
+    return showError('areq-error', res.message);
+  }
+  closeModal('modal-admin-req');
+  showToast('✅ ' + res.message, 'success');
+  reloadCurrentPage();
+}
+
+// ── Xóa (đơn / nhân viên) ──
+let confirmAction_ = null;
+
+function openConfirm(title, bodyHtml, fn, withReason = true) {
+  $('confirm-title').textContent = title;
+  $('confirm-body').innerHTML = bodyHtml;
+  $('confirm-reason').value = '';
+  $('confirm-reason-group').style.display = withReason ? 'block' : 'none';
+  $('confirm-word').value = '';
+  $('confirm-btn').disabled = true;
+  hideError('confirm-error');
+  confirmAction_ = fn;
+  openModal('modal-confirm');
+  setTimeout(() => $('confirm-word').focus(), 100);
+}
+
+async function runConfirm() {
+  if (!confirmAction_) return;
+  const btn = $('confirm-btn');
+  btn.disabled = true; btn.textContent = '⏳ Đang xóa...';
+  const res = await confirmAction_($('confirm-reason').value.trim());
+  btn.textContent = '🗑️ Xóa vĩnh viễn';
+  if (!res.success) { btn.disabled = false; return showError('confirm-error', res.message); }
+  closeModal('modal-confirm');
+  showToast('🗑️ ' + res.message, 'info');
+}
+
+function confirmDeleteRequest(id) {
+  const r = requestCache[id];
+  if (!r) return;
+  openConfirm('🗑️ Xóa đơn nghỉ phép', `
+    Xóa vĩnh viễn đơn <span class="mono-id">${esc(r.id)}</span> của <strong>${esc(r.employee_name)}</strong>
+    (${esc(r.from_date)} → ${esc(r.to_date)}, ${daysText(r)} ngày, trạng thái <em>${esc(statusLabel(r.status))}</em>)?<br>
+    <span class="td-muted">Số ngày phép của nhân viên sẽ được tính lại. Bản sao dữ liệu được lưu trong Nhật ký hệ thống.</span>`,
+    async reason => {
+      const res = await apiCall('admin-delete-request', { request_id: id, reason });
+      if (res.success) { delete requestCache[id]; reloadCurrentPage(); }
+      return res;
+    });
+}
+
+function confirmDeleteEmployee(cccd) {
+  const e = employeeCache[cccd];
+  if (!e) return;
+  const depts = e.departments && e.departments.length ? e.departments : [e.department];
+  const deptChoice = depts.length > 1 ? `<div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+      <label class="check-row"><input type="radio" name="del-dept" value="all" checked /> Xóa khỏi <strong>tất cả</strong> đơn vị</label>
+      ${depts.map(d => `<label class="check-row"><input type="radio" name="del-dept" value="${esc(d)}" /> Chỉ xóa khỏi ${esc(d)}</label>`).join('')}
+    </div>` : '';
+  openConfirm('🗑️ Xóa nhân viên', `
+    Xóa <strong>${esc(e.name)}</strong> (<span class="mono-id">${esc(e.cccd)}</span>, ${esc(ROLE_LABELS[e.role] || e.role)})?<br>
+    <span class="td-muted">Người này sẽ không đăng nhập được nữa. Các đơn nghỉ cũ vẫn được giữ lại để tra cứu.</span>${deptChoice}`,
+    async reason => {
+      const department = getRadio('del-dept') || 'all';
+      const res = await apiCall('delete-employee', { cccd, department, reason });
+      if (res.success) { state.employees = []; loadEmployees(); }
+      return res;
+    }, false);
+}
+
+// ── Nhật ký ──
+const DANGER_ACTIONS = /DELETE|LOGOUT_ALL|RESET|FAIL/;
+async function loadLogs() {
+  const c = $('logs-container');
+  c.innerHTML = loadingHTML();
+  const res = await apiCall('logs', {
+    q: $('log-q').value.trim(), log_action: $('log-action').value,
+    from: $('log-from').value, to: $('log-to').value, limit: $('log-limit').value
+  });
+  if (!res.success) { c.innerHTML = emptyHTML('⚠️', res.message); return; }
+  const sel = $('log-action'), cur = sel.value;
+  sel.innerHTML = '<option value="">Tất cả thao tác</option>' + (res.actions || []).map(a => `<option value="${esc(a)}" ${a === cur ? 'selected' : ''}>${esc(a)}</option>`).join('');
+  $('logs-sub').textContent = `Hiển thị ${res.logs.length} / ${res.total} dòng nhật ký`;
+  if (!res.logs.length) { c.innerHTML = emptyHTML('📜', 'Không có nhật ký phù hợp'); return; }
+  const p = n => String(n).padStart(2, '0');
+  c.innerHTML = `<table><thead><tr><th>Thời gian</th><th>Thao tác</th><th>Người thực hiện</th><th>Chi tiết</th></tr></thead><tbody>` +
+    res.logs.map(l => {
+      const d = new Date(l.time);
+      const time = isNaN(d) ? esc(l.time) : `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())} ${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
+      const cls = DANGER_ACTIONS.test(l.action) ? 'danger' : /^ADMIN/.test(l.action) ? 'admin' : '';
+      return `<tr>
+        <td data-label="Thời gian" class="td-muted" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;white-space:nowrap">${time}</td>
+        <td data-label="Thao tác"><span class="log-action ${cls}">${esc(l.action)}</span></td>
+        <td data-label="Người"><strong>${esc(l.user_name || '—')}</strong><div class="mono-id">${esc(l.user_id)}</div></td>
+        <td data-label="Chi tiết"><div class="log-detail">${esc(l.detail)}</div></td>
+      </tr>`;
+    }).join('') + '</tbody></table>';
+}
+
+// ── Trang hệ thống ──
+async function loadSystem() {
+  const statsEl = $('system-stats'), adminsEl = $('admins-container');
+  statsEl.innerHTML = loadingHTML(); adminsEl.innerHTML = '';
+  const res = await apiCall('system-info');
+  if (!res.success) { statsEl.innerHTML = emptyHTML('⚠️', res.message); return; }
+  const i = res.info;
+  const roles = Object.entries(i.employees_by_role || {}).map(([r, n]) => `${esc((ROLE_LABELS[r] || r).replace(/^\S+\s/, ''))}: ${n}`).join(' · ');
+  statsEl.innerHTML = `
+    <div class="stat-card blue"><div class="stat-icon">👥</div><div class="stat-value">${i.employees}</div><div class="stat-label">Nhân viên<div style="font-size:0.68rem;margin-top:4px">${roles}</div></div></div>
+    <div class="stat-card green"><div class="stat-icon">📄</div><div class="stat-value">${i.requests}</div><div class="stat-label">Đơn nghỉ (mọi năm học)</div></div>
+    <div class="stat-card gold"><div class="stat-icon">🟢</div><div class="stat-value">${i.active_sessions}</div><div class="stat-label">Phiên đăng nhập đang hoạt động</div></div>
+    <div class="stat-card purple"><div class="stat-icon">📜</div><div class="stat-value">${i.logs}</div><div class="stat-label">Dòng nhật ký</div></div>
+    <div class="stat-card red"><div class="stat-icon">⚙️</div><div class="stat-value" style="font-size:1rem;padding-top:6px">${esc(i.version)}</div>
+      <div class="stat-label">Năm học ${esc(i.leave_year)} · ${esc(i.timezone)}<br><a href="${esc(i.spreadsheet_url)}" target="_blank" rel="noopener" style="color:var(--sky)">Mở Google Sheet ↗</a></div></div>`;
+  adminsEl.innerHTML = `<table><thead><tr><th>CCCD</th><th>Họ tên</th><th>Mật khẩu</th><th></th></tr></thead><tbody>` +
+    i.admins.map(a => `<tr>
+      <td data-label="CCCD"><span class="mono-id">${esc(a.cccd)}</span></td>
+      <td data-label="Họ tên"><strong>${esc(a.name)}</strong>${a.cccd === state.user.cccd ? ' <span class="td-muted">(bạn)</span>' : ''}</td>
+      <td data-label="Mật khẩu">${a.has_password ? '<span class="status status-hr_confirmed">Đã đặt</span>' : '<span class="status status-pending">Chưa đặt</span>'}</td>
+      <td>${a.cccd !== state.user.cccd && a.has_password
+        ? `<button class="btn btn-secondary btn-sm" data-cccd="${esc(a.cccd)}" data-name="${esc(a.name)}" onclick="resetAdminPw(this.dataset.cccd, this.dataset.name)">↺ Đặt lại mật khẩu</button>` : ''}</td>
+    </tr>`).join('') + '</tbody></table>' +
+    (i.admins.some(a => !a.has_password) ? `<div class="admin-warn" style="margin:12px">⚠️ Tài khoản "Chưa đặt" mật khẩu: ai biết CCCD đều có thể tự tạo mật khẩu ở lần đăng nhập đầu. Hãy yêu cầu người đó đăng nhập ngay.</div>` : '');
+}
+
+async function resetAdminPw(cccd, name) {
+  if (!confirm(`Đặt lại mật khẩu của ${name}?\nNgười này sẽ phải tạo mật khẩu mới ở lần đăng nhập tới.`)) return;
+  const res = await apiCall('admin-reset-password', { cccd });
+  showToast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+  if (res.success) loadSystem();
+}
+
+async function adminTool(action, question) {
+  if (!confirm(question)) return;
+  showToast('⏳ Đang thực hiện...', 'info');
+  const res = await apiCall(action);
+  showToast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+  if (res.success) loadSystem();
 }
 
 // ============================================================
